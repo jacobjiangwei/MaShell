@@ -1,7 +1,7 @@
 """Permission prompt UI."""
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
 from rich.panel import Panel
@@ -89,7 +89,7 @@ class PermissionUI:
             lambda: input(prompt)
         )
 
-    async def _edit_command(self, args: dict) -> dict | None:
+    async def _edit_command(self, args: dict[str, Any]) -> dict[str, Any] | None:
         """Let user edit the command."""
         if "command" not in args:
             self.console.print("[red]Cannot edit: no command in arguments[/red]")

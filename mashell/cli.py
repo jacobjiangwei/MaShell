@@ -72,7 +72,7 @@ def run_init(console: Console) -> None:
         url = Prompt.ask("Enter your Azure OpenAI endpoint")
     elif preset["url"]:
         console.print(f"  [dim]Default: {preset['url']}[/dim]")
-        url = Prompt.ask("API URL", default=preset["url"])
+        url = Prompt.ask("API URL", default=str(preset["url"]))
     else:
         url = Prompt.ask("API URL")
 
@@ -97,7 +97,7 @@ def run_init(console: Console) -> None:
         model = Prompt.ask("Deployment name")
     elif preset["default_model"]:
         console.print(f"  [dim]Default: {preset['default_model']}[/dim]")
-        model = Prompt.ask("Model name", default=preset["default_model"])
+        model = Prompt.ask("Model name", default=str(preset["default_model"]))
     else:
         model = Prompt.ask("Model name")
 
@@ -165,7 +165,7 @@ def test_config(console: Console, profile_name: str, config_path: Path) -> None:
 
         # Create a simple test
         from mashell.providers import create_provider
-        from mashell.providers.base import Message
+        from mashell.providers.base import Message, Response
 
         provider = create_provider(
             config.provider.provider,
@@ -174,7 +174,7 @@ def test_config(console: Console, profile_name: str, config_path: Path) -> None:
             config.provider.model,
         )
 
-        async def do_test():
+        async def do_test() -> Response:
             response = await provider.chat([
                 Message(role="user", content="Say 'Hello from MaShell!' in exactly those words.")
             ])

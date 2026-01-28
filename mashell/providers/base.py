@@ -80,7 +80,7 @@ class BaseProvider(ABC):
         """
         pass
 
-    def _parse_tool_calls(self, raw_tool_calls: list[dict]) -> list[ToolCall]:
+    def _parse_tool_calls(self, raw_tool_calls: list[dict[str, Any]]) -> list[ToolCall]:
         """Parse raw tool calls from API response."""
         import json
 

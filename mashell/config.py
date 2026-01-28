@@ -4,6 +4,7 @@ import os
 import platform
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -87,7 +88,7 @@ def load_from_profile(profile_name: str, config_path: str | None = None) -> Conf
     )
 
 
-def _load_permissions_from_data(data: dict) -> PermissionConfig:
+def _load_permissions_from_data(data: dict[str, Any]) -> PermissionConfig:
     """Load permissions from config data."""
     perms = data.get("permissions", {})
     return PermissionConfig(

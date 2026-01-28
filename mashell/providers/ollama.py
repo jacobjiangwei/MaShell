@@ -84,7 +84,7 @@ class OllamaProvider(BaseProvider):
             },
         )
 
-    def _parse_ollama_tool_calls(self, raw_tool_calls: list[dict]) -> list[ToolCall]:
+    def _parse_ollama_tool_calls(self, raw_tool_calls: list[dict[str, Any]]) -> list[ToolCall]:
         """Parse Ollama-style tool calls."""
         tool_calls = []
         for i, tc in enumerate(raw_tool_calls):

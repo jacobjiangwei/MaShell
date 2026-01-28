@@ -242,9 +242,9 @@ class Agent:
     def _get_command_display(self, tool_call: ToolCall) -> str:
         """Get the command string for display."""
         if tool_call.name == "shell":
-            return tool_call.arguments.get("command", "")
+            return str(tool_call.arguments.get("command", ""))
         elif tool_call.name == "run_background":
-            return tool_call.arguments.get("command", "")
+            return str(tool_call.arguments.get("command", ""))
         elif tool_call.name == "check_background":
             return f"check_background({tool_call.arguments.get('task_id', '')})"
         else:

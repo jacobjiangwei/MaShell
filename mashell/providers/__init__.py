@@ -20,7 +20,7 @@ __all__ = [
 
 def create_provider(provider_type: str, url: str, key: str | None, model: str) -> BaseProvider:
     """Factory function to create a provider instance."""
-    providers = {
+    providers: dict[str, type[BaseProvider]] = {
         "openai": OpenAIProvider,
         "azure": AzureProvider,
         "anthropic": AnthropicProvider,
@@ -30,4 +30,5 @@ def create_provider(provider_type: str, url: str, key: str | None, model: str) -
     if provider_type not in providers:
         raise ValueError(f"Unknown provider: {provider_type}. Supported: {list(providers.keys())}")
 
-    return providers[provider_type](url, key, model)
+    provider_class = providers[provider_type]
+    return provider_class(url, key, model)
