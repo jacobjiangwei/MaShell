@@ -101,7 +101,8 @@ class Agent:
                 # If no tool calls, we're done
                 if not response.tool_calls:
                     if response.content:
-                        self.console.print(f"\n[bold green]MaShell:[/bold green] {response.content}")
+                        self.console.print()
+                        self.console.print(f"[bold green]MaShell:[/bold green] {response.content}")
                         self.context.add_message(Message(role="assistant", content=response.content))
                     return response.content
                 
@@ -116,7 +117,8 @@ class Agent:
                 
                 # Show thinking if any
                 if response.content:
-                    self.console.print(f"\n[dim]{response.content}[/dim]")
+                    self.console.print()
+                    self.console.print(f"[bold cyan]💭[/bold cyan] {response.content}")
                 
                 # Execute tool calls
                 for tool_call in response.tool_calls:
@@ -175,6 +177,9 @@ class Agent:
                 error=f"Unknown tool: {tool_call.name}",
             )
         
+        # Get command for display
+        cmd_display = self._get_command_display(tool_call)
+        
         # Check permission
         if tool.requires_permission:
             request = PermissionRequest(
@@ -186,7 +191,7 @@ class Agent:
             permission = await self.permissions.check(request)
             
             if not permission.approved:
-                self.console.print("[yellow]Permission denied[/yellow]")
+                self.console.print("[yellow]⏹ Cancelled[/yellow]")
                 return ToolResult(
                     success=False,
                     output="",
@@ -195,22 +200,50 @@ class Agent:
             
             # Use modified args if user edited
             args = permission.modified_args or tool_call.arguments
+            # Update command display if args were modified
+            if permission.modified_args:
+                cmd_display = permission.modified_args.get("command", cmd_display)
         else:
             args = tool_call.arguments
         
-        # Execute
-        if self.verbose:
-            self.console.print(f"[dim]Executing: {tool.name}({args})[/dim]")
+        # Show execution start
+        self.console.print()
+        self.console.print(f"[bold yellow]▶ Run:[/bold yellow]")
+        self.console.print(f"  [cyan]$ {cmd_display}[/cyan]")
         
+        # Execute
         result = await tool.execute(**args)
         
-        # Show brief result
+        # Show result
         if result.success:
-            output_preview = result.output[:200] + "..." if len(result.output) > 200 else result.output
-            if output_preview.strip():
-                self.console.print(f"[dim]{output_preview}[/dim]")
+            if result.output.strip():
+                # Truncate long output
+                lines = result.output.strip().split('\n')
+                if len(lines) > 15:
+                    display_lines = lines[:12] + [f"  ... ({len(lines) - 12} more lines)"]
+                    output_display = '\n'.join(display_lines)
+                else:
+                    output_display = result.output.strip()
+                
+                self.console.print(f"[bold blue]📋 Output:[/bold blue]")
+                self.console.print(f"[dim]{output_display}[/dim]")
+            else:
+                self.console.print(f"[green]✓ Done[/green]")
         else:
-            self.console.print(f"[red]Command failed: {result.error}[/red]")
+            self.console.print(f"[bold red]✗ Failed:[/bold red] {result.error}")
+        
+        return result
+    
+    def _get_command_display(self, tool_call: ToolCall) -> str:
+        """Get the command string for display."""
+        if tool_call.name == "shell":
+            return tool_call.arguments.get("command", "")
+        elif tool_call.name == "run_background":
+            return tool_call.arguments.get("command", "")
+        elif tool_call.name == "check_background":
+            return f"check_background({tool_call.arguments.get('task_id', '')})"
+        else:
+            return str(tool_call.arguments)
         
         return result
     
