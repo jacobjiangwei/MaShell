@@ -7,29 +7,33 @@ from mashell.tools.base import BaseTool, ToolResult
 
 
 class ShellTool(BaseTool):
-    """
-    Universal shell tool - executes any command.
-    
-    AI uses appropriate commands for different tasks:
-    - Read file: cat, head, tail
-    - Write file: echo > , cat >, tee
-    - Edit file: sed, awk, or write full content
-    - List dir: ls, find, tree
-    - Search: grep, find, rg (ripgrep)
-    - Install: pip, npm, brew, apt
-    - Any other shell command
-    """
+    """Universal shell tool - executes any command."""
     
     name = "shell"
-    description = """Execute any shell command. Use this for all operations:
-- Read files: cat file.txt, head -n 20 file.txt
-- Write files: echo 'content' > file.txt, cat << 'EOF' > file.txt ... EOF
-- List directories: ls -la, find . -name "*.py", tree
-- Search content: grep -r "pattern" ., rg "pattern"
-- Run programs: python script.py, node app.js, npm start
-- Install tools: pip install package, brew install tool
-- Git operations: git status, git diff, git commit
-- Any other shell operation the task requires"""
+    description = """Execute a shell command. This is your primary tool for ALL operations.
+
+## When to Use
+- Read files: `cat file.txt`, `head -n 20 file.txt`, `tail -f log.txt`
+- Write files: `echo 'content' > file.txt`, `cat << 'EOF' > file.txt`
+- List/find: `ls -la`, `find . -name "*.py"`, `tree`
+- Search: `grep -r "pattern" .`, `rg "pattern"`
+- Run programs: `python script.py`, `node app.js`
+- Install: `pip install pkg`, `brew install tool`
+- Git: `git status`, `git diff`, `git commit -m "msg"`
+- Any other shell command
+
+## Best Practices
+1. Run ONE simple command at a time
+2. Use human-readable flags: `ls -lh` (not raw bytes)
+3. Limit output: `head -20`, `| head -10`
+4. Suppress errors when exploring: `2>/dev/null`
+5. Prefer simple commands over complex pipelines
+
+## Examples
+✅ Good: `ls -lhS ~/Downloads/*.mp4 | head -10`
+✅ Good: `find ~/Movies -name "*.mp4" -type f`
+✅ Good: `du -sh ~/Documents/*`
+❌ Avoid: Long pipelines with xargs, awk, complex logic"""
     
     parameters: dict[str, Any] = {
         "type": "object",

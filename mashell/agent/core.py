@@ -3,6 +3,7 @@
 from typing import Any
 
 from rich.console import Console
+from rich.status import Status
 
 from mashell.config import Config
 from mashell.providers import create_provider
@@ -43,6 +44,21 @@ class Agent:
         
         # Verbose mode
         self.verbose = config.verbose
+        
+        # Loading spinner
+        self._spinner: Status | None = None
+    
+    def _start_thinking(self) -> None:
+        """Show thinking indicator."""
+        if self._spinner is None:
+            self._spinner = self.console.status("[bold cyan]🤔 Thinking...[/bold cyan]", spinner="dots")
+            self._spinner.start()
+    
+    def _stop_thinking(self) -> None:
+        """Hide thinking indicator."""
+        if self._spinner is not None:
+            self._spinner.stop()
+            self._spinner = None
     
     async def run(self, user_input: str) -> str | None:
         """Run the agent with user input."""
@@ -61,14 +77,21 @@ class Agent:
             iteration += 1
             
             if self.verbose:
+                self._stop_thinking()
                 self.console.print(f"[dim]Iteration {iteration}...[/dim]")
             
             try:
+                # Show thinking indicator while waiting for LLM
+                self._start_thinking()
+                
                 # Get LLM response
                 response = await self.provider.chat(
                     messages,
                     tools=self.tools.all_schemas(),
                 )
+                
+                # Stop thinking indicator
+                self._stop_thinking()
                 
                 if self.verbose:
                     self.console.print(f"[dim]Finish reason: {response.finish_reason}[/dim]")
@@ -109,12 +132,14 @@ class Agent:
                     self.context.add_message(tool_msg)
                 
             except Exception as e:
+                self._stop_thinking()
                 self.console.print(f"[red]Error: {e}[/red]")
                 if self.verbose:
                     import traceback
                     self.console.print(f"[dim]{traceback.format_exc()}[/dim]")
                 return None
         
+        self._stop_thinking()
         self.console.print("[yellow]Reached maximum iterations[/yellow]")
         return None
     

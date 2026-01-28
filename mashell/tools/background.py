@@ -116,9 +116,22 @@ class RunBackgroundTool(BaseTool):
     """Tool to start a long-running command in the background."""
     
     name = "run_background"
-    description = """Start a long-running command in the background. 
-Use this for commands that take a long time or run continuously (servers, watch mode, etc.).
-Returns a task ID that can be used with check_background to monitor output."""
+    description = """Start a long-running command in the background.
+
+## When to Use
+- Starting a dev server: `npm run dev`, `python -m http.server`
+- Watch mode builds: `npm run watch`, `tsc --watch`
+- Long-running processes: `tail -f /var/log/system.log`
+- Any command that doesn't exit quickly
+
+## How It Works
+1. The command runs in background
+2. Returns a task ID (e.g., "bg_1")
+3. Use `check_background` with the task ID to see output
+
+## Example
+1. Start server: `run_background("npm run dev")`  → returns "bg_1"
+2. Check output: `check_background("bg_1")` → shows server logs"""
     
     parameters: dict[str, Any] = {
         "type": "object",
@@ -165,8 +178,19 @@ class CheckBackgroundTool(BaseTool):
     
     name = "check_background"
     description = """Check output and status of a background task.
-Use the task ID returned by run_background.
-Set wait=true to wait for the task to complete."""
+
+## When to Use
+- Check if a server started successfully
+- View logs from a background process
+- Wait for a long command to finish
+
+## Parameters
+- `task_id`: The ID returned by run_background (e.g., "bg_1")
+- `wait`: If true, waits for the task to complete
+- `tail`: Number of lines to show (default: 50)
+
+## Example
+`check_background("bg_1")` → Shows recent output and status"""
     
     parameters: dict[str, Any] = {
         "type": "object",
