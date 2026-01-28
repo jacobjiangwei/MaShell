@@ -1,9 +1,9 @@
 """Configuration loading and management."""
 
-from dataclasses import dataclass, field
-from pathlib import Path
 import os
 import platform
+from dataclasses import dataclass, field
+from pathlib import Path
 
 import yaml
 
@@ -32,7 +32,7 @@ class Config:
     verbose: bool = False
     auto_approve_all: bool = False
     working_dir: str = field(default_factory=os.getcwd)
-    
+
     @property
     def system_info(self) -> str:
         """Get current system information."""
@@ -55,25 +55,25 @@ def load_default_permissions() -> PermissionConfig:
 def load_from_profile(profile_name: str, config_path: str | None = None) -> Config:
     """Load configuration from a named profile."""
     path = Path(config_path) if config_path else get_config_path()
-    
+
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
-    
+
     with open(path) as f:
         data = yaml.safe_load(f)
-    
+
     profiles = data.get("profiles", {})
     if profile_name not in profiles:
         raise ValueError(f"Profile '{profile_name}' not found in config")
-    
+
     profile = profiles[profile_name]
-    
+
     # Expand environment variables in key
     key = profile.get("key")
     if key and key.startswith("${") and key.endswith("}"):
         env_var = key[2:-1]
         key = os.getenv(env_var)
-    
+
     return Config(
         provider=ProviderConfig(
             provider=profile["provider"],
@@ -107,7 +107,9 @@ def load_config(
     auto_approve_all: bool = False,
 ) -> Config:
     """
-    Load configuration with priority: CLI args > env vars > config file (auto-select single profile).
+    Load configuration with priority: CLI args > env vars > config file.
+
+    Auto-selects single profile if only one exists.
     """
     # If profile specified, load from config file
     if profile:
@@ -115,13 +117,13 @@ def load_config(
         config.verbose = verbose
         config.auto_approve_all = auto_approve_all
         return config
-    
+
     # Build from CLI args / env vars
     resolved_provider = provider or os.getenv("MASHELL_PROVIDER")
     resolved_url = url or os.getenv("MASHELL_URL")
     resolved_key = key or os.getenv("MASHELL_KEY")
     resolved_model = model or os.getenv("MASHELL_MODEL")
-    
+
     # If no CLI args or env vars, try to auto-load from config file
     if not any([resolved_provider, resolved_url, resolved_model]):
         path = Path(config_path) if config_path else get_config_path()
@@ -129,7 +131,7 @@ def load_config(
             with open(path) as f:
                 data = yaml.safe_load(f)
             profiles = data.get("profiles", {})
-            
+
             if len(profiles) == 1:
                 # Auto-select the only profile
                 profile_name = list(profiles.keys())[0]
@@ -140,8 +142,11 @@ def load_config(
             elif len(profiles) > 1:
                 # Multiple profiles - user must specify
                 profile_names = ", ".join(profiles.keys())
-                raise ValueError(f"Multiple profiles found: {profile_names}. Use --profile to specify one.")
-    
+                raise ValueError(
+                    f"Multiple profiles found: {profile_names}. "
+                    "Use --profile to specify one."
+                )
+
     # Validate required fields
     if not resolved_provider:
         raise ValueError("Provider is required. Use --provider or set MASHELL_PROVIDER")
@@ -149,7 +154,7 @@ def load_config(
         raise ValueError("URL is required. Use --url or set MASHELL_URL")
     if not resolved_model:
         raise ValueError("Model is required. Use --model or set MASHELL_MODEL")
-    
+
     return Config(
         provider=ProviderConfig(
             provider=resolved_provider,

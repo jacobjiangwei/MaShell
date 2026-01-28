@@ -25,7 +25,7 @@ class PermissionResult:
 
 class PermissionManager:
     """Manages permission checking and prompting."""
-    
+
     def __init__(
         self,
         config: PermissionConfig,
@@ -35,26 +35,26 @@ class PermissionManager:
         self.auto_approve_all = auto_approve_all
         self.session_approved: set[str] = set()  # Tools approved for session
         self.ui = PermissionUI()
-    
+
     async def check(self, request: PermissionRequest) -> PermissionResult:
         """Check if permission is granted for an action."""
         # Auto-approve if -y flag
         if self.auto_approve_all:
             return PermissionResult(approved=True)
-        
+
         # Check if in auto-approve list
         if request.tool_name in self.config.auto_approve:
             return PermissionResult(approved=True)
-        
+
         # Check if user said "always approve" this session
         if request.tool_name in self.session_approved:
             return PermissionResult(approved=True)
-        
+
         # Prompt user
         result = await self.ui.prompt(request)
-        
+
         # Remember if user said "always"
         if result.remember and result.approved:
             self.session_approved.add(request.tool_name)
-        
+
         return result

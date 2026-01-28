@@ -1,17 +1,17 @@
 """System prompts and templates."""
 
-import platform
 import os
+import platform
 from datetime import datetime
 
 
 def get_system_prompt(working_dir: str | None = None) -> str:
     """Get the system prompt for MaShell."""
-    
+
     # Detect current system
     system_name = platform.system()  # Darwin, Linux, Windows
     system_release = platform.release()
-    
+
     if system_name == "Darwin":
         os_display = f"macOS {platform.mac_ver()[0]}"
     elif system_name == "Linux":
@@ -20,12 +20,12 @@ def get_system_prompt(working_dir: str | None = None) -> str:
         os_display = f"Windows {system_release}"
     else:
         os_display = f"{system_name} {system_release}"
-    
+
     cwd = working_dir or os.getcwd()
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
     shell = os.environ.get("SHELL", "/bin/bash")
     user = os.environ.get("USER", "user")
-    
+
     macos_notes = """
 ## macOS Specific Notes
 - Use `brew` for package management
@@ -105,12 +105,18 @@ def get_task_memory_prompt(
     key_decisions: list[str],
 ) -> str:
     """Generate a task memory prompt to maintain context."""
-    
-    progress_text = "\n".join(f"  {'✓' if i < current_step else '→' if i == current_step else '○'} Step {i+1}: {p}" 
-                              for i, p in enumerate(progress))
-    
-    decisions_text = "\n".join(f"  - {d}" for d in key_decisions) if key_decisions else "  (none yet)"
-    
+
+    progress_text = "\n".join(
+        f"  {'✓' if i < current_step else '→' if i == current_step else '○'} Step {i+1}: {p}"
+        for i, p in enumerate(progress)
+    )
+
+    decisions_text = (
+        "\n".join(f"  - {d}" for d in key_decisions)
+        if key_decisions
+        else "  (none yet)"
+    )
+
     return f"""
 ## Current Task Memory
 

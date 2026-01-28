@@ -12,7 +12,7 @@ class Message:
     content: str | None
     tool_calls: list["ToolCall"] | None = None
     tool_call_id: str | None = None
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API calls."""
         d: dict[str, Any] = {"role": self.role}
@@ -31,7 +31,7 @@ class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         import json
@@ -56,12 +56,12 @@ class Response:
 
 class BaseProvider(ABC):
     """Abstract base class for LLM providers."""
-    
+
     def __init__(self, url: str, key: str | None, model: str):
         self.url = url.rstrip("/")
         self.key = key
         self.model = model
-    
+
     @abstractmethod
     async def chat(
         self,
@@ -70,20 +70,20 @@ class BaseProvider(ABC):
     ) -> Response:
         """
         Send messages and get response with optional tool calls.
-        
+
         Args:
             messages: List of conversation messages
             tools: Optional list of tool definitions in OpenAI format
-            
+
         Returns:
             Response with content and/or tool calls
         """
         pass
-    
+
     def _parse_tool_calls(self, raw_tool_calls: list[dict]) -> list[ToolCall]:
         """Parse raw tool calls from API response."""
         import json
-        
+
         tool_calls = []
         for tc in raw_tool_calls:
             func = tc.get("function", {})
@@ -92,11 +92,11 @@ class BaseProvider(ABC):
                 args = json.loads(args_str)
             except json.JSONDecodeError:
                 args = {}
-            
+
             tool_calls.append(ToolCall(
                 id=tc.get("id", ""),
                 name=func.get("name", ""),
                 arguments=args,
             ))
-        
+
         return tool_calls

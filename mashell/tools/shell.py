@@ -8,7 +8,7 @@ from mashell.tools.base import BaseTool, ToolResult
 
 class ShellTool(BaseTool):
     """Universal shell tool - executes any command."""
-    
+
     name = "shell"
     description = """Execute a shell command. This is your primary tool for ALL operations.
 
@@ -34,7 +34,7 @@ class ShellTool(BaseTool):
 ✅ Good: `find ~/Movies -name "*.mp4" -type f`
 ✅ Good: `du -sh ~/Documents/*`
 ❌ Avoid: Long pipelines with xargs, awk, complex logic"""
-    
+
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
@@ -53,10 +53,10 @@ class ShellTool(BaseTool):
         },
         "required": ["command"]
     }
-    
+
     requires_permission = True
     permission_level = "always_ask"
-    
+
     async def execute(
         self,
         command: str,
@@ -72,29 +72,29 @@ class ShellTool(BaseTool):
                 stderr=asyncio.subprocess.PIPE,
                 cwd=working_dir,
             )
-            
+
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(),
                 timeout=timeout,
             )
-            
+
             output = stdout.decode("utf-8", errors="replace")
             err = stderr.decode("utf-8", errors="replace") if stderr else ""
-            
+
             # Combine stdout and stderr for full picture
             full_output = output
             if err:
                 full_output += f"\n[stderr]:\n{err}"
-            
+
             # Truncate very long output
             full_output = self._truncate_output(full_output)
-            
+
             return ToolResult(
                 success=process.returncode == 0,
                 output=full_output,
                 error=err if process.returncode != 0 else None,
             )
-            
+
         except asyncio.TimeoutError:
             try:
                 process.kill()
@@ -111,26 +111,26 @@ class ShellTool(BaseTool):
                 output="",
                 error=str(e),
             )
-    
+
     def _truncate_output(self, output: str, max_lines: int = 200, max_chars: int = 10000) -> str:
         """Truncate long output while preserving useful information."""
         if len(output) <= max_chars:
             lines = output.split("\n")
             if len(lines) <= max_lines:
                 return output
-        
+
         lines = output.split("\n")
         total_lines = len(lines)
-        
+
         if total_lines <= max_lines:
             # Just char limit exceeded
             return output[:max_chars] + f"\n\n[Output truncated: {len(output)} chars total]"
-        
+
         # Keep first and last portions
         keep_lines = max_lines // 2
         first_part = "\n".join(lines[:keep_lines])
         last_part = "\n".join(lines[-keep_lines:])
-        
+
         return (
             f"{first_part}\n\n"
             f"[... {total_lines - max_lines} lines omitted ...]\n\n"
