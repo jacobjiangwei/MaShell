@@ -1,0 +1,68 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  homebrew:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Get release info
+        id: release
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Download the release tarball and calculate SHA256
+          curl -sL "https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz" -o release.tar.gz
+          SHA256=$(shasum -a 256 release.tar.gz | cut -d' ' -f1)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+
+      - name: Update Homebrew formula
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          SHA256="${{ steps.release.outputs.sha256 }}"
+          
+          # Clone the tap repo
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${{ github.repository_owner }}/homebrew-tap.git
+          cd homebrew-tap
+          
+          # Generate the formula
+          cat > Formula/mashell.rb << EOF
+          class Mashell < Formula
+            include Language::Python::Virtualenv
+          
+            desc "AI-powered command line assistant"
+            homepage "https://github.com/${{ github.repository }}"
+            url "https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz"
+            sha256 "${SHA256}"
+            license "GPL-3.0"
+          
+            depends_on "python@3.11"
+          
+            def install
+              virtualenv_install_with_resources
+            end
+          
+            test do
+              assert_match "MaShell", shell_output("#{bin}/mashell --help")
+            end
+          end
+          EOF
+          
+          # Commit and push
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/mashell.rb
+          git commit -m "Update mashell to v${VERSION}"
+          git push
