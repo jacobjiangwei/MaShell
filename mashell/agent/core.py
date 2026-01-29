@@ -109,6 +109,12 @@ class Agent:
                         self.context.add_message(
                             Message(role="assistant", content=response.content)
                         )
+                    else:
+                        # LLM returned empty response (possibly refused the request)
+                        self.console.print()
+                        self.console.print(
+                            "[yellow]MaShell:[/yellow] [dim](No response - the model may have declined this request)[/dim]"
+                        )
                     return response.content
 
                 # Add assistant message with tool calls

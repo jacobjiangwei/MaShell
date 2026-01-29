@@ -3,6 +3,7 @@
 from mashell.tools.background import BackgroundTaskManager, CheckBackgroundTool, RunBackgroundTool
 from mashell.tools.base import BaseTool, ToolRegistry, ToolResult
 from mashell.tools.shell import ShellTool
+from mashell.tools.web import CrawlTool, FetchPageTool
 
 __all__ = [
     "BaseTool",
@@ -12,6 +13,9 @@ __all__ = [
     "BackgroundTaskManager",
     "RunBackgroundTool",
     "CheckBackgroundTool",
+    "CrawlTool",
+    "FetchPageTool",
+    "create_tool_registry",
 ]
 
 
@@ -23,5 +27,7 @@ def create_tool_registry() -> ToolRegistry:
     registry.register(ShellTool())
     registry.register(RunBackgroundTool(bg_manager))
     registry.register(CheckBackgroundTool(bg_manager))
+    registry.register(CrawlTool())
+    registry.register(FetchPageTool())
 
     return registry
