@@ -12,38 +12,26 @@ class Mashell < Formula
   include Language::Python::Virtualenv
 
   desc "AI-powered command line assistant"
-  homepage "https://github.com/your-username/MaShell"
-  url "https://github.com/your-username/MaShell/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "PLACEHOLDER_SHA256"
+  homepage "https://github.com/jacobjiangwei/MaShell"
+  url "https://github.com/jacobjiangwei/MaShell/archive/refs/tags/v__VERSION__.tar.gz"
+  sha256 "__SHA256__"
   license "GPL-3.0"
 
   depends_on "python@3.11"
 
-  resource "httpx" do
-    url "https://files.pythonhosted.org/packages/source/h/httpx/httpx-0.27.0.tar.gz"
-    sha256 "PLACEHOLDER"
-  end
-
-  resource "rich" do
-    url "https://files.pythonhosted.org/packages/source/r/rich/rich-13.7.0.tar.gz"
-    sha256 "PLACEHOLDER"
-  end
-
-  resource "pyyaml" do
-    url "https://files.pythonhosted.org/packages/source/p/pyyaml/PyYAML-6.0.1.tar.gz"
-    sha256 "PLACEHOLDER"
-  end
-
-  resource "prompt-toolkit" do
-    url "https://files.pythonhosted.org/packages/source/p/prompt_toolkit/prompt_toolkit-3.0.43.tar.gz"
-    sha256 "PLACEHOLDER"
-  end
+  # Dependencies are installed via pip from pyproject.toml
+  # Using system_site_packages to leverage pre-installed packages
 
   def install
-    virtualenv_install_with_resources
+    # Install using pip which reads dependencies from pyproject.toml
+    virtualenv_create(libexec, "python3.11")
+    system libexec/"bin/pip", "install", "--no-deps", "."
+    # Install dependencies
+    system libexec/"bin/pip", "install", "httpx>=0.25.0", "rich>=13.0.0", "pyyaml>=6.0", "prompt-toolkit>=3.0"
+    bin.install_symlink libexec/"bin/mashell"
   end
 
   test do
-    assert_match "MaShell", shell_output("#{bin}/mashell --help 2>&1", 1)
+    assert_match "MaShell", shell_output("#{bin}/mashell --help")
   end
 end

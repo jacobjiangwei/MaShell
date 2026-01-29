@@ -216,8 +216,11 @@ class Agent:
         self.console.print("[bold yellow]▶ Run:[/bold yellow]")
         self.console.print(f"  [cyan]$ {cmd_display}[/cyan]")
 
-        # Execute
-        result = await tool.execute(**args)
+        # Execute with status indicator for potentially long-running commands
+        with self.console.status(
+            "[bold cyan]⏳ Executing...[/bold cyan]", spinner="dots"
+        ):
+            result = await tool.execute(**args)
 
         # Show result
         if result.success:
