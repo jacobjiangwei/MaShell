@@ -1,7 +1,7 @@
 """Native filesystem tools - read/list/search without shell dependency."""
 
-import os
 import fnmatch
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -140,7 +140,7 @@ Handles binary files, large files, and encoding issues gracefully.
 
             # Check for special file types
             suffix = file_path.suffix.lower()
-            
+
             # Handle PDF
             if suffix == ".pdf":
                 content = self._read_pdf(file_path)
@@ -148,25 +148,25 @@ Handles binary files, large files, and encoding issues gracefully.
                     return ToolResult(
                         success=False,
                         output="",
-                        error=f"Cannot read PDF (install pdfplumber: pip install pdfplumber)"
+                        error="Cannot read PDF (install pdfplumber: pip install pdfplumber)"
                     )
                 output = f"[{path}] (PDF)\n\n{content}"
                 return ToolResult(success=True, output=smart_truncate(output, max_lines=1000))
-            
+
             # Handle Word documents
             if suffix in (".docx", ".doc"):
                 if suffix == ".doc":
                     return ToolResult(
                         success=False,
                         output="",
-                        error=f"Old .doc format not supported, only .docx"
+                        error="Old .doc format not supported, only .docx"
                     )
                 content = self._read_docx(file_path)
                 if content is None:
                     return ToolResult(
                         success=False,
                         output="",
-                        error=f"Cannot read DOCX (install python-docx: pip install python-docx)"
+                        error="Cannot read DOCX (install python-docx: pip install python-docx)"
                     )
                 output = f"[{path}] (Word Document)\n\n{content}"
                 return ToolResult(success=True, output=smart_truncate(output, max_lines=1000))
@@ -771,12 +771,19 @@ edit_docx("resume.docx", [
                             # Preserve runs structure for simple replacements
                             for run in para.runs:
                                 if find_text in run.text:
-                                    run.text = run.text.replace(find_text, replace_text)
+                                    run.text = run.text.replace(
+                                        find_text, replace_text
+                                    )
                                     count += 1
                     if count > 0:
-                        changes.append(f"Replaced '{find_text}' → '{replace_text}' ({count} occurrences)")
+                        changes.append(
+                            f"Replaced '{find_text}' → '{replace_text}' "
+                            f"({count} occurrences)"
+                        )
                     else:
-                        changes.append(f"⚠️ '{find_text}' not found for replacement")
+                        changes.append(
+                            f"⚠️ '{find_text}' not found for replacement"
+                        )
 
                 elif op_type == "update_paragraph":
                     new_text = op.get("text", "")
@@ -785,11 +792,16 @@ edit_docx("resume.docx", [
                         if find_text in para.text:
                             old_text = para.text
                             para.text = new_text
-                            changes.append(f"Updated paragraph: '{old_text[:50]}...' → '{new_text[:50]}...'")
+                            changes.append(
+                                f"Updated paragraph: '{old_text[:40]}...' "
+                                f"→ '{new_text[:40]}...'"
+                            )
                             found = True
                             break
                     if not found:
-                        changes.append(f"⚠️ Paragraph containing '{find_text}' not found")
+                        changes.append(
+                            f"⚠️ Paragraph containing '{find_text}' not found"
+                        )
 
                 elif op_type == "insert_after":
                     new_text = op.get("text", "")
@@ -800,11 +812,16 @@ edit_docx("resume.docx", [
                             new_para = doc.paragraphs[i]._element
                             new_p = doc.add_paragraph(new_text)._element
                             new_para.addnext(new_p)
-                            changes.append(f"Inserted after '{find_text[:30]}...': '{new_text[:50]}...'")
+                            changes.append(
+                                f"Inserted after '{find_text[:30]}...': "
+                                f"'{new_text[:40]}...'"
+                            )
                             found = True
                             break
                     if not found:
-                        changes.append(f"⚠️ Paragraph containing '{find_text}' not found for insertion")
+                        changes.append(
+                            f"⚠️ Paragraph '{find_text}' not found for insert"
+                        )
 
                 else:
                     changes.append(f"⚠️ Unknown operation type: {op_type}")

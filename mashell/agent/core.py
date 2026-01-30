@@ -1,12 +1,11 @@
 """Core agent implementation."""
 
-import asyncio
 import signal
 from typing import Callable
 
 from rich.console import Console
 from rich.markup import escape as rich_escape
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Prompt
 from rich.status import Status
 
 from mashell.agent.context import ContextManager
@@ -19,7 +18,7 @@ from mashell.tools import create_tool_registry
 from mashell.tools.base import ToolRegistry, ToolResult
 
 
-class InterruptException(Exception):
+class InterruptError(Exception):
     """Raised when user interrupts the agent."""
     pass
 
@@ -56,7 +55,7 @@ class Agent:
 
         # Loading spinner
         self._spinner: Status | None = None
-        
+
         # Interrupt flag
         self._interrupted = False
         self._original_sigint_handler: Callable[..., None] | None = None
@@ -93,9 +92,9 @@ class Agent:
             self._interrupted = True
             self._stop_thinking()
             # Don't print here - let _check_interrupted handle the prompt
-        
+
         self._original_sigint_handler = signal.signal(signal.SIGINT, handler)
-    
+
     def _restore_interrupt_handler(self) -> None:
         """Restore original Ctrl+C handler."""
         if self._original_sigint_handler is not None:
@@ -106,17 +105,17 @@ class Agent:
         """Check if interrupted and get new user input if so."""
         if not self._interrupted:
             return None
-        
+
         self._interrupted = False
         self.console.print()
         self.console.print("[yellow]⚡ Interrupted![/yellow]")
-        
+
         try:
             new_input = Prompt.ask(
                 "[bold yellow]▶[/bold yellow] New instruction (Enter=continue, 'stop'=abort)"
             )
             new_input = new_input.strip()
-            
+
             if new_input.lower() == "stop":
                 return "__STOP__"
             elif new_input:
@@ -169,14 +168,14 @@ class Agent:
             if iteration > max_iterations:
                 self._stop_thinking()
                 self.console.print(f"\n[yellow]⚠️ Reached {max_iterations} iterations.[/yellow]")
-                
+
                 try:
                     choice = Prompt.ask(
                         "[bold]Continue?[/bold]",
                         choices=["y", "n", "more"],
                         default="y"
                     )
-                    
+
                     if choice == "n":
                         self.console.print("[dim]Stopped.[/dim]")
                         return None
@@ -186,11 +185,11 @@ class Agent:
                         if extra.strip():
                             messages.append(Message(role="user", content=extra.strip()))
                             self.context.add_message(Message(role="user", content=extra.strip()))
-                    
+
                     # Reset counter and continue
                     iteration = 1
                     max_iterations = 20
-                    
+
                 except (KeyboardInterrupt, EOFError):
                     self.console.print("\n[dim]Stopped.[/dim]")
                     return None
@@ -228,10 +227,11 @@ class Agent:
                             Message(role="assistant", content=response.content)
                         )
                     else:
-                        # LLM returned empty response (possibly refused the request)
+                        # LLM returned empty response (possibly refused)
                         self.console.print()
                         self.console.print(
-                            "[yellow]MaShell:[/yellow] [dim](No response - the model may have declined this request)[/dim]"
+                            "[yellow]MaShell:[/yellow] "
+                            "[dim](No response - model may have declined)[/dim]"
                         )
                     return response.content
 
@@ -258,7 +258,8 @@ class Agent:
                         self.console.print("[yellow]Stopped by user.[/yellow]")
                         return None
                     elif new_instruction:
-                        # Add cancelled results for remaining tool calls (API requires all tool_calls have results)
+                        # Add cancelled results for remaining tool calls
+                        # (API requires all tool_calls have results)
                         for remaining_call in tool_calls_list[i:]:
                             cancelled_msg = Message(
                                 role="tool",
@@ -267,10 +268,17 @@ class Agent:
                             )
                             messages.append(cancelled_msg)
                             self.context.add_message(cancelled_msg)
-                        
-                        self.console.print(f"[bold blue]📝 New instruction:[/bold blue] {new_instruction}")
-                        messages.append(Message(role="user", content=new_instruction))
-                        self.context.add_message(Message(role="user", content=new_instruction))
+
+                        self.console.print(
+                            f"[bold blue]📝 New instruction:[/bold blue] "
+                            f"{new_instruction}"
+                        )
+                        messages.append(Message(
+                            role="user", content=new_instruction
+                        ))
+                        self.context.add_message(Message(
+                            role="user", content=new_instruction
+                        ))
                         break  # Exit tool loop to process new instruction
 
                     result = await self._execute_tool(tool_call)
@@ -289,7 +297,7 @@ class Agent:
                         )
                         messages.append(tool_msg)
                         self.context.add_message(tool_msg)
-                        
+
                         # Add cancelled results for remaining tool calls
                         for remaining_call in tool_calls_list[i+1:]:
                             cancelled_msg = Message(
@@ -299,10 +307,17 @@ class Agent:
                             )
                             messages.append(cancelled_msg)
                             self.context.add_message(cancelled_msg)
-                        
-                        self.console.print(f"[bold blue]📝 New instruction:[/bold blue] {new_instruction}")
-                        messages.append(Message(role="user", content=new_instruction))
-                        self.context.add_message(Message(role="user", content=new_instruction))
+
+                        self.console.print(
+                            f"[bold blue]📝 New instruction:[/bold blue] "
+                            f"{new_instruction}"
+                        )
+                        messages.append(Message(
+                            role="user", content=new_instruction
+                        ))
+                        self.context.add_message(Message(
+                            role="user", content=new_instruction
+                        ))
                         break  # Exit tool loop to process new instruction
 
                     # Add tool result
@@ -404,7 +419,8 @@ class Agent:
                 # Truncate long output
                 lines = result.output.strip().split('\n')
                 if len(lines) > 15:
-                    display_lines = lines[:12] + [f"  ... ({len(lines) - 12} more lines)"]
+                    more = len(lines) - 12
+                    display_lines = lines[:12] + [f"  ... ({more} more lines)"]
                     output_display = '\n'.join(display_lines)
                 else:
                     output_display = result.output.strip()
@@ -414,7 +430,8 @@ class Agent:
             else:
                 self.console.print("[green]✓ Done[/green]")
         else:
-            self.console.print(f"[bold red]✗ Failed:[/bold red] {rich_escape(result.error or 'Unknown error')}")
+            err_msg = rich_escape(result.error or 'Unknown error')
+            self.console.print(f"[bold red]✗ Failed:[/bold red] {err_msg}")
 
         return result
 
@@ -446,7 +463,6 @@ class Agent:
         elif tool_call.name == "write_file":
             path = tool_call.arguments.get("path", "")
             content = tool_call.arguments.get("content", "")
-            preview = content[:50] + "..." if len(content) > 50 else content
             return f"write_file({path!r}, {len(content)} chars)"
         elif tool_call.name == "crawl":
             query = tool_call.arguments.get("query", "")

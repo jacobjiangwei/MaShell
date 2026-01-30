@@ -2,7 +2,13 @@
 
 from mashell.tools.background import BackgroundTaskManager, CheckBackgroundTool, RunBackgroundTool
 from mashell.tools.base import BaseTool, ToolRegistry, ToolResult
-from mashell.tools.filesystem import EditDocxTool, ListDirTool, ReadFileTool, SearchFilesTool, WriteFileTool
+from mashell.tools.filesystem import (
+    EditDocxTool,
+    ListDirTool,
+    ReadFileTool,
+    SearchFilesTool,
+    WriteFileTool,
+)
 from mashell.tools.shell import ShellTool
 from mashell.tools.web import CrawlTool, FetchPageTool
 

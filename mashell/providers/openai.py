@@ -48,7 +48,7 @@ class OpenAIProvider(BaseProvider):
     ) -> Response:
         """Make request with exponential backoff retry for rate limits."""
         last_error: Exception | None = None
-        
+
         for attempt in range(self.MAX_RETRIES):
             try:
                 async with httpx.AsyncClient() as client:
@@ -61,10 +61,10 @@ class OpenAIProvider(BaseProvider):
                     response.raise_for_status()
                     data = response.json()
                     return self._parse_response(data)
-                    
+
             except httpx.HTTPStatusError as e:
                 last_error = e
-                
+
                 if e.response.status_code == 429:
                     # Rate limited - get retry-after header or use exponential backoff
                     retry_after = e.response.headers.get("retry-after")
@@ -75,16 +75,16 @@ class OpenAIProvider(BaseProvider):
                             delay = self.BASE_RETRY_DELAY * (2 ** attempt)
                     else:
                         delay = self.BASE_RETRY_DELAY * (2 ** attempt)
-                    
+
                     delay = min(delay, self.MAX_RETRY_DELAY)
-                    
+
                     if attempt < self.MAX_RETRIES - 1:
                         await asyncio.sleep(delay)
                         continue
-                
+
                 # Non-429 error or last retry - raise
                 raise
-                
+
             except httpx.TimeoutException as e:
                 last_error = e
                 if attempt < self.MAX_RETRIES - 1:
@@ -92,7 +92,7 @@ class OpenAIProvider(BaseProvider):
                     await asyncio.sleep(delay)
                     continue
                 raise
-        
+
         # Should not reach here, but just in case
         if last_error:
             raise last_error

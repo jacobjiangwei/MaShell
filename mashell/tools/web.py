@@ -19,8 +19,8 @@ class CrawlTool(BaseTool):
 
 ## Examples
 - crawl("https://github.com/trending") - Get trending repos
-- crawl("https://news.ycombinator.com") - Get HN front page  
-- crawl("https://example.com/article", extract_links=True) - Get content + all links
+- crawl("https://news.ycombinator.com") - Get HN front page
+- crawl("https://example.com/article", extract_links=True) - Get content + links
 
 ## Output
 Returns clean Markdown text optimized for LLM processing.
@@ -72,14 +72,16 @@ Returns clean Markdown text optimized for LLM processing.
     ) -> ToolResult:
         """Crawl a web page using Crawl4AI."""
         try:
-            from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
+            import importlib.util
+            if importlib.util.find_spec("crawl4ai") is None:
+                raise ImportError("crawl4ai not found")
         except ImportError:
             return ToolResult(
                 success=False,
                 output="",
                 error="crawl4ai not installed. Run: pip install crawl4ai && crawl4ai-setup",
             )
-        
+
         return await self._crawl_with_crawl4ai(
             url, extract_links, wait_for, css_selector, screenshot
         )
@@ -93,7 +95,7 @@ Returns clean Markdown text optimized for LLM processing.
         screenshot: bool,
     ) -> ToolResult:
         """Crawl using Crawl4AI (full browser rendering)."""
-        from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
+        from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
 
         # Configure browser
         browser_config = BrowserConfig(
@@ -142,7 +144,7 @@ Returns clean Markdown text optimized for LLM processing.
                 content = markdown_content.fit_markdown
             else:
                 content = str(markdown_content)
-            
+
             content = content.strip()
             if len(content) > 50000:
                 content = content[:50000] + "\n\n... (truncated)"
@@ -153,7 +155,7 @@ Returns clean Markdown text optimized for LLM processing.
             links_section = "\n\n---\n## Extracted Links\n"
             internal = result.links.get("internal", [])
             external = result.links.get("external", [])
-            
+
             if internal:
                 links_section += f"\n### Internal Links ({len(internal)} found)\n"
                 for link in internal[:30]:
@@ -164,7 +166,7 @@ Returns clean Markdown text optimized for LLM processing.
                         href = str(link)
                         text = ""
                     links_section += f"- [{text or href}]({href})\n"
-            
+
             if external:
                 links_section += f"\n### External Links ({len(external)} found)\n"
                 for link in external[:20]:
@@ -175,7 +177,7 @@ Returns clean Markdown text optimized for LLM processing.
                         href = str(link)
                         text = ""
                     links_section += f"- [{text or href}]({href})\n"
-            
+
             output_parts.append(links_section)
 
         # Add media info
@@ -245,18 +247,17 @@ class FetchPageTool(BaseTool):
         try:
             import httpx
 
+            ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
             async with httpx.AsyncClient(
                 timeout=timeout,
                 follow_redirects=True,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-                }
+                headers={"User-Agent": ua}
             ) as client:
                 response = await client.get(url)
                 response.raise_for_status()
 
                 content_type = response.headers.get("content-type", "")
-                
+
                 if "json" in content_type:
                     # Return formatted JSON
                     import json
@@ -317,155 +318,11 @@ class FetchPageTool(BaseTool):
 
             # Get text
             text = soup.get_text(separator="\n", strip=True)
-            
+
             # Clean up multiple newlines
             import re
             text = re.sub(r'\n{3,}', '\n\n', text)
-            
-            return text
 
-        except ImportError:
-            # Fallback: basic regex extraction
-            import re
-            # Remove script/style tags
-            text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
-            text = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
-            # Remove all other tags
-            text = re.sub(r'<[^>]+>', ' ', text)
-            # Decode HTML entities
-            import html as html_module
-            text = html_module.unescape(text)
-            # Clean whitespace
-            text = re.sub(r'\s+', ' ', text).strip()
-            return text
-
-
-class FetchPageTool(BaseTool):
-    """Simple HTTP fetch for static pages (no JavaScript)."""
-
-    name = "fetch_page"
-    description = """Fetch a web page's text content using simple HTTP request.
-
-## When to Use
-- Quick fetch of static HTML pages
-- API endpoints that return JSON/text
-- When you don't need JavaScript rendering
-- Faster alternative to browse() for simple pages
-
-## When NOT to Use
-- JavaScript-heavy sites (use browse instead)
-- Sites with anti-bot protection
-- Need to interact with forms/buttons
-
-## Examples
-- fetch_page("https://api.github.com/users/octocat")
-- fetch_page("https://example.com/page.html")"""
-
-    parameters: dict[str, Any] = {
-        "type": "object",
-        "properties": {
-            "url": {
-                "type": "string",
-                "description": "The URL to fetch"
-            },
-            "timeout": {
-                "type": "integer",
-                "description": "Request timeout in seconds (default: 30)"
-            }
-        },
-        "required": ["url"]
-    }
-
-    requires_permission = True
-    permission_level = "always_ask"
-
-    async def execute(
-        self,
-        url: str,
-        timeout: int = 30,
-        **kwargs: Any,
-    ) -> ToolResult:
-        """Fetch a web page."""
-        try:
-            import httpx
-
-            async with httpx.AsyncClient(
-                timeout=timeout,
-                follow_redirects=True,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-                }
-            ) as client:
-                response = await client.get(url)
-                response.raise_for_status()
-
-                content_type = response.headers.get("content-type", "")
-                
-                if "json" in content_type:
-                    # Return formatted JSON
-                    import json
-                    try:
-                        data = response.json()
-                        return ToolResult(
-                            success=True,
-                            output=json.dumps(data, indent=2, ensure_ascii=False),
-                        )
-                    except Exception:
-                        pass
-
-                # Return text content
-                text = response.text
-
-                # Try to extract main text from HTML
-                if "html" in content_type:
-                    text = self._extract_text_from_html(text)
-
-                # Truncate if too long
-                if len(text) > 50000:
-                    text = text[:50000] + "\n\n... (truncated)"
-
-                return ToolResult(
-                    success=True,
-                    output=text,
-                )
-
-        except httpx.TimeoutException:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Request timed out after {timeout}s",
-            )
-        except httpx.HTTPStatusError as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"HTTP {e.response.status_code}: {e.response.reason_phrase}",
-            )
-        except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Fetch error: {str(e)}",
-            )
-
-    def _extract_text_from_html(self, html: str) -> str:
-        """Extract readable text from HTML."""
-        try:
-            # Try BeautifulSoup if available
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(html, "html.parser")
-
-            # Remove script and style elements
-            for element in soup(["script", "style", "nav", "footer", "header"]):
-                element.decompose()
-
-            # Get text
-            text = soup.get_text(separator="\n", strip=True)
-            
-            # Clean up multiple newlines
-            import re
-            text = re.sub(r'\n{3,}', '\n\n', text)
-            
             return text
 
         except ImportError:
