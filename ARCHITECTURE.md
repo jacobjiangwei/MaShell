@@ -118,25 +118,105 @@ LLM 提供商的抽象接口。
 **BaseProvider 接口：**
 - `chat(messages, tools)` → Response (content + tool_calls)
 
+---
+
+## Fundamental Design Principles
+
+### 原则 1: Native File Awareness（原生文件感知）
+
+**不依赖 shell 命令来读取文件和目录。**
+
+#### 为什么这很重要
+
+| Shell 方式 (`cat`, `ls`) | Native 方式 (Python I/O) |
+|-------------------------|-------------------------|
+| 命令回显噪声，浪费 token | 直接返回内容 |
+| 每次读取需要权限确认 | 读取自动批准，写入才确认 |
+| 二进制文件会乱码 | 检测并优雅处理 |
+| 无法带行号 | 可标注行号便于 patch |
+| 需要多轮探索 | Agent 预先"感知"workspace |
+
+#### 读写分离原则
+
+```
+读取操作 (低风险) → 自动批准
+├── read_file      读文件内容
+├── list_dir       列目录
+└── search_files   搜索/grep
+
+执行操作 (高风险) → 需要确认
+├── shell          执行任意命令
+├── write_file     写入/修改文件
+└── run_background 后台任务
+```
+
+#### 设计细节
+
+1. **智能截断**：文件过长时保留头尾，中间标记 `[... N lines omitted ...]`
+2. **二进制检测**：检测到二进制返回 `[Binary file, N bytes]` 而非乱码
+3. **行号标注**：便于后续生成精确的 patch/diff
+4. **编码处理**：自动检测 UTF-8/Latin-1，失败时返回错误而非乱码
+
+### 原则 2: Diff-First Output（优先输出 Diff）
+
+**修改文件时，优先生成可 apply 的 patch，而非完整文件。**
+
+#### 为什么
+
+- **Token 效率**：100 行文件改 2 行，只需输出 ~10 行 diff，而非 100 行
+- **安全性**：小 diff 易于人工审核，不容易"幻觉删除"代码
+- **可逆性**：patch 可以轻松 revert
+
+#### 工具设计
+
+```python
+# write_file 支持两种模式：
+write_file(path, content)           # 完整覆盖（新文件）
+write_file(path, patch, mode="patch")  # 应用 unified diff
+```
+
+### 原则 3: Human-in-the-Loop for Mutations（写操作必须确认）
+
+**任何可能改变系统状态的操作，都需要人工确认。**
+
+| 操作类型 | 权限级别 | 原因 |
+|---------|---------|------|
+| 读取文件/目录 | `auto` | 无副作用 |
+| 搜索文件内容 | `auto` | 无副作用 |
+| 写入/删除文件 | `always_ask` | 不可逆 |
+| 执行 shell 命令 | `always_ask` | 可能有任意副作用 |
+| 安装包 | `always_ask` | 改变系统状态 |
+
+---
+
 ### 4. Tool System (`tools/`)
 
-简化的工具系统 — 一个万能 shell 工具。
+基于上述原则设计的工具系统。
 
 **工具列表：**
 | Tool | 描述 | 需要权限 |
 |------|------|---------|
-| `shell` | 执行任意 shell 命令 | ✅ |
-| `run_background` | 启动后台长任务 | ✅ |
-| `check_background` | 检查后台任务输出 | ❌ |
+| `read_file` | 读取文件内容（带行号） | ❌ 自动 |
+| `list_dir` | 列出目录内容 | ❌ 自动 |
+| `search_files` | 搜索文件内容 (grep) | ❌ 自动 |
+| `write_file` | 写入/修改文件 | ✅ 需确认 |
+| `shell` | 执行任意 shell 命令 | ✅ 需确认 |
+| `run_background` | 启动后台长任务 | ✅ 需确认 |
+| `check_background` | 检查后台任务输出 | ❌ 自动 |
 
-**shell 工具能做的事：**
-- 读文件: `cat`, `head`, `tail`
-- 写文件: `echo '...' > file`, `cat << 'EOF' > file`
-- 编辑文件: `sed`, `awk`, 或重写整个文件
-- 列目录: `ls`, `find`, `tree`
-- 搜索: `grep`, `rg`, `find`
-- 安装: `pip`, `npm`, `brew`, `apt`
-- 运行代码: `python`, `node`, 等
+**shell 工具的定位变化：**
+
+Shell 现在专注于**执行操作**，而非文件读取：
+- 运行代码: `python script.py`, `node app.js`
+- 安装: `pip install pkg`, `brew install tool`
+- Git: `git status`, `git commit -m "msg"`
+- 构建: `make`, `npm run build`
+- 网络: `curl`, `wget`
+
+**不再推荐用 shell 做的事：**
+- ~~读文件: `cat`, `head`, `tail`~~ → 用 `read_file`
+- ~~列目录: `ls`, `find`, `tree`~~ → 用 `list_dir`
+- ~~搜索: `grep`, `rg`~~ → 用 `search_files`
 
 ### 5. Permission System (`permissions/`)
 

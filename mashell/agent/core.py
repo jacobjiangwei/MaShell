@@ -1,7 +1,12 @@
 """Core agent implementation."""
 
+import asyncio
+import signal
+from typing import Callable
 
 from rich.console import Console
+from rich.markup import escape as rich_escape
+from rich.prompt import Confirm, Prompt
 from rich.status import Status
 
 from mashell.agent.context import ContextManager
@@ -12,6 +17,11 @@ from mashell.providers import create_provider
 from mashell.providers.base import BaseProvider, Message, ToolCall
 from mashell.tools import create_tool_registry
 from mashell.tools.base import ToolRegistry, ToolResult
+
+
+class InterruptException(Exception):
+    """Raised when user interrupts the agent."""
+    pass
 
 
 class Agent:
@@ -46,14 +56,30 @@ class Agent:
 
         # Loading spinner
         self._spinner: Status | None = None
+        
+        # Interrupt flag
+        self._interrupted = False
+        self._original_sigint_handler: Callable[..., None] | None = None
+
+    def _start_status(self, message: str, emoji: str = "🤔") -> None:
+        """Show status indicator with custom message."""
+        if self._spinner is not None:
+            self._spinner.stop()
+        self._spinner = self.console.status(
+            f"[bold cyan]{emoji} {message}[/bold cyan]", spinner="dots"
+        )
+        self._spinner.start()
+
+    def _update_status(self, message: str, emoji: str = "⚡") -> None:
+        """Update the status message without stopping/starting."""
+        if self._spinner is not None:
+            self._spinner.update(f"[bold cyan]{emoji} {message}[/bold cyan]")
+        else:
+            self._start_status(message, emoji)
 
     def _start_thinking(self) -> None:
         """Show thinking indicator."""
-        if self._spinner is None:
-            self._spinner = self.console.status(
-                "[bold cyan]🤔 Thinking...[/bold cyan]", spinner="dots"
-            )
-            self._spinner.start()
+        self._start_status("Thinking...", "🤔")
 
     def _stop_thinking(self) -> None:
         """Hide thinking indicator."""
@@ -61,9 +87,59 @@ class Agent:
             self._spinner.stop()
             self._spinner = None
 
+    def _setup_interrupt_handler(self) -> None:
+        """Setup Ctrl+C handler to allow interruption."""
+        def handler(signum: int, frame: object) -> None:
+            self._interrupted = True
+            self._stop_thinking()
+            # Don't print here - let _check_interrupted handle the prompt
+        
+        self._original_sigint_handler = signal.signal(signal.SIGINT, handler)
+    
+    def _restore_interrupt_handler(self) -> None:
+        """Restore original Ctrl+C handler."""
+        if self._original_sigint_handler is not None:
+            signal.signal(signal.SIGINT, self._original_sigint_handler)
+            self._original_sigint_handler = None
+
+    def _check_interrupted(self) -> str | None:
+        """Check if interrupted and get new user input if so."""
+        if not self._interrupted:
+            return None
+        
+        self._interrupted = False
+        self.console.print()
+        self.console.print("[yellow]⚡ Interrupted![/yellow]")
+        
+        try:
+            new_input = Prompt.ask(
+                "[bold yellow]▶[/bold yellow] New instruction (Enter=continue, 'stop'=abort)"
+            )
+            new_input = new_input.strip()
+            
+            if new_input.lower() == "stop":
+                return "__STOP__"
+            elif new_input:
+                return new_input
+            else:
+                return None  # Continue with current task
+        except (KeyboardInterrupt, EOFError):
+            return "__STOP__"
+
     async def run(self, user_input: str) -> str | None:
         """Run the agent with user input."""
 
+        # Setup interrupt handler
+        self._setup_interrupt_handler()
+        self._interrupted = False
+
+        try:
+            return await self._run_loop(user_input)
+        finally:
+            self._restore_interrupt_handler()
+
+    async def _run_loop(self, user_input: str) -> str | None:
+        """Internal run loop with interrupt support."""
         # Build messages
         messages = self._build_messages(user_input)
 
@@ -74,12 +150,54 @@ class Agent:
         iteration = 0
         max_iterations = 20  # Safety limit
 
-        while iteration < max_iterations:
+        while True:
+            # Check for interrupt at start of each iteration
+            new_instruction = self._check_interrupted()
+            if new_instruction == "__STOP__":
+                self.console.print("[yellow]Stopped by user.[/yellow]")
+                return None
+            elif new_instruction:
+                # User provided new instruction - add it and continue
+                self.console.print(f"[bold blue]📝 New instruction:[/bold blue] {new_instruction}")
+                messages.append(Message(role="user", content=new_instruction))
+                self.context.add_message(Message(role="user", content=new_instruction))
+                iteration = 0  # Reset iteration count for new instruction
+
             iteration += 1
+
+            # Check iteration limit
+            if iteration > max_iterations:
+                self._stop_thinking()
+                self.console.print(f"\n[yellow]⚠️ Reached {max_iterations} iterations.[/yellow]")
+                
+                try:
+                    choice = Prompt.ask(
+                        "[bold]Continue?[/bold]",
+                        choices=["y", "n", "more"],
+                        default="y"
+                    )
+                    
+                    if choice == "n":
+                        self.console.print("[dim]Stopped.[/dim]")
+                        return None
+                    elif choice == "more":
+                        # Let user add more context
+                        extra = Prompt.ask("[bold yellow]Add instruction[/bold yellow]")
+                        if extra.strip():
+                            messages.append(Message(role="user", content=extra.strip()))
+                            self.context.add_message(Message(role="user", content=extra.strip()))
+                    
+                    # Reset counter and continue
+                    iteration = 1
+                    max_iterations = 20
+                    
+                except (KeyboardInterrupt, EOFError):
+                    self.console.print("\n[dim]Stopped.[/dim]")
+                    return None
 
             if self.verbose:
                 self._stop_thinking()
-                self.console.print(f"[dim]Iteration {iteration}...[/dim]")
+                self.console.print(f"[dim]Iteration {iteration}/{max_iterations}...[/dim]")
 
             try:
                 # Show thinking indicator while waiting for LLM
@@ -132,8 +250,60 @@ class Agent:
                     self.console.print(f"[bold cyan]💭[/bold cyan] {response.content}")
 
                 # Execute tool calls
-                for tool_call in response.tool_calls:
+                tool_calls_list = list(response.tool_calls)
+                for i, tool_call in enumerate(tool_calls_list):
+                    # Check interrupt before each tool execution
+                    new_instruction = self._check_interrupted()
+                    if new_instruction == "__STOP__":
+                        self.console.print("[yellow]Stopped by user.[/yellow]")
+                        return None
+                    elif new_instruction:
+                        # Add cancelled results for remaining tool calls (API requires all tool_calls have results)
+                        for remaining_call in tool_calls_list[i:]:
+                            cancelled_msg = Message(
+                                role="tool",
+                                content="[Cancelled by user]",
+                                tool_call_id=remaining_call.id,
+                            )
+                            messages.append(cancelled_msg)
+                            self.context.add_message(cancelled_msg)
+                        
+                        self.console.print(f"[bold blue]📝 New instruction:[/bold blue] {new_instruction}")
+                        messages.append(Message(role="user", content=new_instruction))
+                        self.context.add_message(Message(role="user", content=new_instruction))
+                        break  # Exit tool loop to process new instruction
+
                     result = await self._execute_tool(tool_call)
+
+                    # Check interrupt AFTER tool execution (user may have pressed Ctrl+C during)
+                    new_instruction = self._check_interrupted()
+                    if new_instruction == "__STOP__":
+                        self.console.print("[yellow]Stopped by user.[/yellow]")
+                        return None
+                    elif new_instruction:
+                        # Add tool result first
+                        tool_msg = Message(
+                            role="tool",
+                            content=result.output if result.success else f"Error: {result.error}",
+                            tool_call_id=tool_call.id,
+                        )
+                        messages.append(tool_msg)
+                        self.context.add_message(tool_msg)
+                        
+                        # Add cancelled results for remaining tool calls
+                        for remaining_call in tool_calls_list[i+1:]:
+                            cancelled_msg = Message(
+                                role="tool",
+                                content="[Cancelled by user]",
+                                tool_call_id=remaining_call.id,
+                            )
+                            messages.append(cancelled_msg)
+                            self.context.add_message(cancelled_msg)
+                        
+                        self.console.print(f"[bold blue]📝 New instruction:[/bold blue] {new_instruction}")
+                        messages.append(Message(role="user", content=new_instruction))
+                        self.context.add_message(Message(role="user", content=new_instruction))
+                        break  # Exit tool loop to process new instruction
 
                     # Add tool result
                     tool_msg = Message(
@@ -146,15 +316,11 @@ class Agent:
 
             except Exception as e:
                 self._stop_thinking()
-                self.console.print(f"[red]Error: {e}[/red]")
+                self.console.print(f"[red]Error: {rich_escape(str(e))}[/red]")
                 if self.verbose:
                     import traceback
-                    self.console.print(f"[dim]{traceback.format_exc()}[/dim]")
+                    self.console.print(f"[dim]{rich_escape(traceback.format_exc())}[/dim]")
                 return None
-
-        self._stop_thinking()
-        self.console.print("[yellow]Reached maximum iterations[/yellow]")
-        return None
 
     def _build_messages(self, user_input: str) -> list[Message]:
         """Build the message list for the LLM."""
@@ -220,13 +386,17 @@ class Agent:
         # Show execution start
         self.console.print()
         self.console.print("[bold yellow]▶ Run:[/bold yellow]")
-        self.console.print(f"  [cyan]$ {cmd_display}[/cyan]")
+        self.console.print(f"  [cyan]$ {rich_escape(cmd_display)}[/cyan]")
 
-        # Execute with status indicator for potentially long-running commands
-        with self.console.status(
-            "[bold cyan]⏳ Executing...[/bold cyan]", spinner="dots"
-        ):
+        # Get tool-specific status message
+        status_msg = self._get_tool_status_message(tool_call.name)
+
+        # Execute with status indicator
+        self._start_status(status_msg, "⚡")
+        try:
             result = await tool.execute(**args)
+        finally:
+            self._stop_thinking()
 
         # Show result
         if result.success:
@@ -240,11 +410,11 @@ class Agent:
                     output_display = result.output.strip()
 
                 self.console.print("[bold blue]📋 Output:[/bold blue]")
-                self.console.print(f"[dim]{output_display}[/dim]")
+                self.console.print(f"[dim]{rich_escape(output_display)}[/dim]")
             else:
                 self.console.print("[green]✓ Done[/green]")
         else:
-            self.console.print(f"[bold red]✗ Failed:[/bold red] {result.error}")
+            self.console.print(f"[bold red]✗ Failed:[/bold red] {rich_escape(result.error or 'Unknown error')}")
 
         return result
 
@@ -256,8 +426,43 @@ class Agent:
             return str(tool_call.arguments.get("command", ""))
         elif tool_call.name == "check_background":
             return f"check_background({tool_call.arguments.get('task_id', '')})"
+        elif tool_call.name == "read_file":
+            path = tool_call.arguments.get("path", "")
+            start = tool_call.arguments.get("start_line")
+            end = tool_call.arguments.get("end_line")
+            if start or end:
+                return f"read_file({path!r}, lines={start or 1}-{end or 'end'})"
+            return f"read_file({path!r})"
+        elif tool_call.name == "list_dir":
+            path = tool_call.arguments.get("path", ".")
+            pattern = tool_call.arguments.get("pattern")
+            if pattern:
+                return f"list_dir({path!r}, pattern={pattern!r})"
+            return f"list_dir({path!r})"
+        elif tool_call.name == "search_files":
+            pattern = tool_call.arguments.get("pattern", "")
+            path = tool_call.arguments.get("path", ".")
+            return f"search_files({pattern!r}, path={path!r})"
+        elif tool_call.name == "write_file":
+            path = tool_call.arguments.get("path", "")
+            content = tool_call.arguments.get("content", "")
+            preview = content[:50] + "..." if len(content) > 50 else content
+            return f"write_file({path!r}, {len(content)} chars)"
+        elif tool_call.name == "crawl":
+            query = tool_call.arguments.get("query", "")
+            return f"crawl({query!r})"
+        elif tool_call.name == "fetch_page":
+            url = tool_call.arguments.get("url", "")
+            return f"fetch_page({url!r})"
+        elif tool_call.name == "edit_docx":
+            path = tool_call.arguments.get("path", "")
+            ops = tool_call.arguments.get("operations", [])
+            save_as = tool_call.arguments.get("save_as")
+            if save_as:
+                return f"edit_docx({path!r}, {len(ops)} ops, save_as={save_as!r})"
+            return f"edit_docx({path!r}, {len(ops)} ops)"
         else:
-            return str(tool_call.arguments)
+            return f"{tool_call.name}({tool_call.arguments})"
 
     def _describe_tool_call(self, tool_call: ToolCall) -> str:
         """Generate a human-readable description of a tool call."""
@@ -270,5 +475,43 @@ class Agent:
         elif tool_call.name == "check_background":
             task_id = tool_call.arguments.get("task_id", "")
             return f"Check background task: {task_id}"
+        elif tool_call.name == "read_file":
+            path = tool_call.arguments.get("path", "")
+            return f"Read file: {path}"
+        elif tool_call.name == "list_dir":
+            path = tool_call.arguments.get("path", ".")
+            return f"List directory: {path}"
+        elif tool_call.name == "search_files":
+            pattern = tool_call.arguments.get("pattern", "")
+            path = tool_call.arguments.get("path", ".")
+            return f"Search for '{pattern}' in {path}"
+        elif tool_call.name == "write_file":
+            path = tool_call.arguments.get("path", "")
+            return f"Write to file: {path}"
+        elif tool_call.name == "crawl":
+            query = tool_call.arguments.get("query", "")
+            return f"Web search: {query}"
+        elif tool_call.name == "fetch_page":
+            url = tool_call.arguments.get("url", "")
+            return f"Fetch page: {url}"
+        elif tool_call.name == "edit_docx":
+            path = tool_call.arguments.get("path", "")
+            return f"Edit Word document: {path}"
         else:
             return f"{tool_call.name}: {tool_call.arguments}"
+
+    def _get_tool_status_message(self, tool_name: str) -> str:
+        """Get a status message for the tool execution."""
+        status_messages = {
+            "shell": "Executing command...",
+            "run_background": "Starting background task...",
+            "check_background": "Checking task status...",
+            "read_file": "Reading file...",
+            "list_dir": "Listing directory...",
+            "search_files": "Searching files...",
+            "write_file": "Writing file...",
+            "crawl": "Crawling web...",
+            "fetch_page": "Fetching page...",
+            "edit_docx": "Editing Word document...",
+        }
+        return status_messages.get(tool_name, f"Running {tool_name}...")

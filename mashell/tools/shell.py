@@ -7,33 +7,39 @@ from mashell.tools.base import BaseTool, ToolResult
 
 
 class ShellTool(BaseTool):
-    """Universal shell tool - executes any command."""
+    """Shell tool for executing commands (not for file reading)."""
 
     name = "shell"
-    description = """Execute a shell command. This is your primary tool for ALL operations.
+    description = """Execute a shell command.
 
-## When to Use
-- Read files: `cat file.txt`, `head -n 20 file.txt`, `tail -f log.txt`
-- Write files: `echo 'content' > file.txt`, `cat << 'EOF' > file.txt`
-- List/find: `ls -la`, `find . -name "*.py"`, `tree`
-- Search: `grep -r "pattern" .`, `rg "pattern"`
-- Run programs: `python script.py`, `node app.js`
-- Install: `pip install pkg`, `brew install tool`
-- Git: `git status`, `git diff`, `git commit -m "msg"`
-- Any other shell command
+## ⚠️ IMPORTANT: Use the RIGHT Tool
+- To READ files → use `read_file` (faster, no permission needed)
+- To LIST directories → use `list_dir` (faster, no permission needed)
+- To SEARCH in files → use `search_files` (faster, no permission needed)
+- To WRITE files → use `write_file` (cleaner)
+
+## When to Use Shell
+- Run programs: `python script.py`, `node app.js`, `cargo run`
+- Install packages: `pip install pkg`, `npm install`, `brew install tool`
+- Git operations: `git status`, `git diff`, `git commit -m "msg"`
+- Build/compile: `make`, `npm run build`, `cargo build`
+- Network: `curl`, `wget`, `ssh`
+- System: `ps`, `top`, `df -h`
+- Any command that DOES something (not just reads)
 
 ## Best Practices
 1. Run ONE simple command at a time
-2. Use human-readable flags: `ls -lh` (not raw bytes)
-3. Limit output: `head -20`, `| head -10`
-4. Suppress errors when exploring: `2>/dev/null`
-5. Prefer simple commands over complex pipelines
+2. Avoid using cat/ls/grep - use native tools instead
+3. Limit output: `| head -10` if needed
+4. Prefer simple commands over complex pipelines
 
 ## Examples
-✅ Good: `ls -lhS ~/Downloads/*.mp4 | head -10`
-✅ Good: `find ~/Movies -name "*.mp4" -type f`
-✅ Good: `du -sh ~/Documents/*`
-❌ Avoid: Long pipelines with xargs, awk, complex logic"""
+✅ Good: `python main.py`
+✅ Good: `git status`
+✅ Good: `pip install requests`
+❌ Don't: `cat file.txt` → use read_file instead
+❌ Don't: `ls -la` → use list_dir instead
+❌ Don't: `grep pattern .` → use search_files instead"""
 
     parameters: dict[str, Any] = {
         "type": "object",
