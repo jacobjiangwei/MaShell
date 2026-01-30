@@ -105,7 +105,7 @@ Handles binary files, large files, and encoding issues gracefully.
         """Try to read Word document content."""
         try:
             from docx import Document
-            doc = Document(file_path)
+            doc = Document(str(file_path))
             paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
             return "\n\n".join(paragraphs) if paragraphs else None
         except ImportError:
@@ -288,11 +288,12 @@ Returns a structured view of files and subdirectories with:
 
     def _format_size(self, size: int) -> str:
         """Format file size in human-readable form."""
+        size_f = float(size)
         for unit in ["B", "KB", "MB", "GB"]:
-            if size < 1024:
-                return f"{size:>7.1f} {unit}" if unit != "B" else f"{size:>7} {unit}"
-            size /= 1024
-        return f"{size:>7.1f} TB"
+            if size_f < 1024:
+                return f"{size_f:>7.1f} {unit}" if unit != "B" else f"{int(size_f):>7} {unit}"
+            size_f /= 1024
+        return f"{size_f:>7.1f} TB"
 
     def _list_entries(
         self,
@@ -756,7 +757,7 @@ edit_docx("resume.docx", [
                     error=f"Not a .docx file: {path}"
                 )
 
-            doc = Document(file_path)
+            doc = Document(str(file_path))
             changes = []
 
             for op in operations:
@@ -829,7 +830,7 @@ edit_docx("resume.docx", [
             # Save
             output_path = Path(save_as).expanduser() if save_as else file_path
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            doc.save(output_path)
+            doc.save(str(output_path))
 
             summary = "\n".join(f"  • {c}" for c in changes)
             return ToolResult(

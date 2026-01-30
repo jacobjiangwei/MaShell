@@ -1,7 +1,7 @@
 """Core agent implementation."""
 
 import signal
-from typing import Callable
+from typing import Any
 
 from rich.console import Console
 from rich.markup import escape as rich_escape
@@ -58,7 +58,7 @@ class Agent:
 
         # Interrupt flag
         self._interrupted = False
-        self._original_sigint_handler: Callable[..., None] | None = None
+        self._original_sigint_handler: Any = None
 
     def _start_status(self, message: str, emoji: str = "🤔") -> None:
         """Show status indicator with custom message."""
