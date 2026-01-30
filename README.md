@@ -34,7 +34,96 @@ That's it! MaShell will walk you through connecting to your AI provider (OpenAI,
 
 ---
 
-## 🎬 See It In Action
+## � What Can MaShell Do?
+
+| Task | Example |
+|------|---------|
+| **Find files** | `"find the largest video on my computer"` |
+| **Read documents** | `"read my resume.pdf and summarize it"` |
+| **Edit Word files** | `"update my resume.docx with new job title"` |
+| **Create projects** | `"build a Python web scraper from scratch"` |
+| **Run code** | `"run this script and fix any errors"` |
+| **Git operations** | `"commit all changes with a good message"` |
+| **Web scraping** | `"scrape the HN front page for top stories"` |
+| **Install tools** | `"install ffmpeg and convert video.mp4 to gif"` |
+| **System tasks** | `"clean up files older than 30 days in Downloads"` |
+| **Debug** | `"why is my Python script failing?"` |
+
+### Native File Tools (No Shell Required)
+
+MaShell has built-in tools for file operations — faster and no permission prompts for reading:
+
+| Tool | Description | Permission |
+|------|-------------|------------|
+| `read_file` | Read any file (supports **PDF**, **Word .docx**, text) | Auto ✅ |
+| `list_dir` | List directory contents with sizes | Auto ✅ |
+| `search_files` | Search/grep across files | Auto ✅ |
+| `write_file` | Write text files | Requires approval |
+| `edit_docx` | Edit Word documents (find/replace, update paragraphs) | Requires approval |
+| `shell` | Execute any shell command | Requires approval |
+| `crawl` | Scrape web pages (JS rendering) | Requires approval |
+
+---
+
+## 🔧 Setup Options
+
+### Option 1: Interactive Setup (Recommended)
+
+Just run `mashell` — if no config exists, it will guide you:
+
+```
+🐚 MaShell Configuration Wizard
+
+Step 1: Choose your LLM provider
+  1. openai    - OpenAI API (GPT-4o, etc.)
+  2. azure     - Azure OpenAI Service
+  3. anthropic - Anthropic API (Claude)
+  4. ollama    - Local Ollama (no API key needed)
+
+Select provider: 2
+
+Step 2: API Endpoint URL
+Enter your Azure OpenAI endpoint: https://your-resource.openai.azure.com/
+
+Step 3: API Key
+Enter your API key: ********
+
+Step 4: Model / Deployment Name
+Deployment name: gpt-4o
+
+✅ Configuration saved!
+```
+
+### Option 2: Command Line Arguments
+
+```bash
+# OpenAI
+mashell --provider openai --url https://api.openai.com/v1 --key sk-... --model gpt-4o "your task"
+
+# Azure OpenAI
+mashell --provider azure --url https://your-resource.openai.azure.com --key xxx --model gpt-4o "your task"
+
+# Anthropic
+mashell --provider anthropic --url https://api.anthropic.com --key sk-ant-... --model claude-sonnet-4-20250514 "your task"
+
+# Local Ollama (no key needed)
+mashell --provider ollama --url http://localhost:11434 --model llama3 "your task"
+```
+
+### Option 3: Environment Variables
+
+```bash
+export MASHELL_PROVIDER="openai"
+export MASHELL_URL="https://api.openai.com/v1"
+export MASHELL_KEY="sk-..."
+export MASHELL_MODEL="gpt-4o"
+
+mashell "your task"
+```
+
+---
+
+## � See It In Action
 
 ### Example 1: Find the Largest Video File
 
@@ -118,95 +207,6 @@ Saved: outputs/cnn.html
 
 MaShell: Today's top story: "Trump ramps up rhetoric on ICE despite calls for de-escalation"
 ```
-
----
-
-## 🔧 Setup Options
-
-### Option 1: Interactive Setup (Recommended)
-
-Just run `mashell` — if no config exists, it will guide you:
-
-```
-🐚 MaShell Configuration Wizard
-
-Step 1: Choose your LLM provider
-  1. openai    - OpenAI API (GPT-4o, etc.)
-  2. azure     - Azure OpenAI Service
-  3. anthropic - Anthropic API (Claude)
-  4. ollama    - Local Ollama (no API key needed)
-
-Select provider: 2
-
-Step 2: API Endpoint URL
-Enter your Azure OpenAI endpoint: https://your-resource.openai.azure.com/
-
-Step 3: API Key
-Enter your API key: ********
-
-Step 4: Model / Deployment Name
-Deployment name: gpt-4o
-
-✅ Configuration saved!
-```
-
-### Option 2: Command Line Arguments
-
-```bash
-# OpenAI
-mashell --provider openai --url https://api.openai.com/v1 --key sk-... --model gpt-4o "your task"
-
-# Azure OpenAI
-mashell --provider azure --url https://your-resource.openai.azure.com --key xxx --model gpt-4o "your task"
-
-# Anthropic
-mashell --provider anthropic --url https://api.anthropic.com --key sk-ant-... --model claude-sonnet-4-20250514 "your task"
-
-# Local Ollama (no key needed)
-mashell --provider ollama --url http://localhost:11434 --model llama3 "your task"
-```
-
-### Option 3: Environment Variables
-
-```bash
-export MASHELL_PROVIDER="openai"
-export MASHELL_URL="https://api.openai.com/v1"
-export MASHELL_KEY="sk-..."
-export MASHELL_MODEL="gpt-4o"
-
-mashell "your task"
-```
-
----
-
-## 🎯 What Can MaShell Do?
-
-| Task | Example |
-|------|---------|
-| **Find files** | `"find the largest video on my computer"` |
-| **Read documents** | `"read my resume.pdf and summarize it"` |
-| **Edit Word files** | `"update my resume.docx with new job title"` |
-| **Create projects** | `"build a Python web scraper from scratch"` |
-| **Run code** | `"run this script and fix any errors"` |
-| **Git operations** | `"commit all changes with a good message"` |
-| **Web scraping** | `"scrape the HN front page for top stories"` |
-| **Install tools** | `"install ffmpeg and convert video.mp4 to gif"` |
-| **System tasks** | `"clean up files older than 30 days in Downloads"` |
-| **Debug** | `"why is my Python script failing?"` |
-
-### Native File Tools (No Shell Required)
-
-MaShell has built-in tools for file operations — faster and no permission prompts for reading:
-
-| Tool | Description | Permission |
-|------|-------------|------------|
-| `read_file` | Read any file (supports **PDF**, **Word .docx**, text) | Auto ✅ |
-| `list_dir` | List directory contents with sizes | Auto ✅ |
-| `search_files` | Search/grep across files | Auto ✅ |
-| `write_file` | Write text files | Requires approval |
-| `edit_docx` | Edit Word documents (find/replace, update paragraphs) | Requires approval |
-| `shell` | Execute any shell command | Requires approval |
-| `crawl` | Scrape web pages (JS rendering) | Requires approval |
 
 ---
 
