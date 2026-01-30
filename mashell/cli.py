@@ -7,10 +7,12 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
+from rich.table import Table
 
 from mashell.agent.core import Agent
 from mashell.config import get_config_path, load_config
 from mashell.logo import display_logo
+from mashell.session import SessionManager
 
 # Provider presets for easy configuration
 PROVIDER_PRESETS = {
@@ -260,10 +262,109 @@ Examples:
         help="Skip the startup logo",
     )
 
+    # Session management
+    parser.add_argument(
+        "-S", "--sessions",
+        action="store_true",
+        help="List all saved sessions",
+    )
+    parser.add_argument(
+        "-r", "--resume",
+        nargs="?",
+        const="__MOST_RECENT__",
+        metavar="N",
+        help="Resume a session (most recent, or specify #N from list)",
+    )
+    parser.add_argument(
+        "-s", "--session",
+        metavar="NAME",
+        help="Use or create a named session",
+    )
+    parser.add_argument(
+        "-n", "--new-session",
+        action="store_true",
+        help="Force start a new session (don't resume)",
+    )
+    parser.add_argument(
+        "--delete-session",
+        metavar="NAME",
+        help="Delete a saved session",
+    )
+    parser.add_argument(
+        "--clear-sessions",
+        action="store_true",
+        help="Delete all saved sessions",
+    )
+
     return parser.parse_args()
 
 
-async def interactive_loop(agent: Agent, console: Console) -> None:
+def show_sessions_list(console: Console, session_mgr: SessionManager) -> list:
+    """Display a table of all saved sessions. Returns list of sessions."""
+    from datetime import datetime
+
+    sessions = session_mgr.list_sessions()
+
+    if not sessions:
+        console.print("[dim]No saved sessions found.[/dim]")
+        console.print("\n[dim]Start a session with:[/dim]")
+        console.print("  [cyan]mashell -s my-project \"your task here\"[/cyan]")
+        return []
+
+    # Sort by updated time, most recent first
+    sessions.sort(key=lambda s: s.updated, reverse=True)
+
+    table = Table(title="🗂️  Saved Sessions", show_header=True, header_style="bold cyan")
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Name", style="bold")
+    table.add_column("Last Active", style="dim")
+    table.add_column("Task", max_width=40)
+
+    def time_ago(iso_time: str) -> str:
+        """Convert ISO time to human-readable 'time ago'."""
+        try:
+            dt = datetime.fromisoformat(iso_time)
+            delta = datetime.now() - dt
+
+            if delta.days > 7:
+                return f"{delta.days // 7}w ago"
+            elif delta.days > 0:
+                return f"{delta.days}d ago"
+            elif delta.seconds > 3600:
+                return f"{delta.seconds // 3600}h ago"
+            elif delta.seconds > 60:
+                return f"{delta.seconds // 60}m ago"
+            else:
+                return "just now"
+        except (ValueError, TypeError):
+            return "unknown"
+
+    for i, sess in enumerate(sessions, 1):
+        task = sess.original_task or "[no task]"
+        if len(task) > 37:
+            task = task[:37] + "..."
+        table.add_row(
+            str(i),
+            sess.name,
+            time_ago(sess.updated),
+            task,
+        )
+
+    console.print(table)
+    console.print()
+    console.print("[dim]Usage:[/dim]")
+    console.print("  [cyan]mashell --resume[/cyan]       Resume most recent (#1)")
+    console.print("  [cyan]mashell --resume 2[/cyan]     Resume session #2")
+    console.print("  [cyan]mashell -s NAME[/cyan]        Resume by name")
+
+    return sessions
+
+
+async def interactive_loop(
+    agent: Agent,
+    console: Console,
+    session_mgr: SessionManager | None = None,
+) -> None:
     """Run interactive conversation loop."""
     from pathlib import Path
 
@@ -275,7 +376,9 @@ async def interactive_loop(agent: Agent, console: Console) -> None:
     history_dir.mkdir(exist_ok=True)
     history_file = history_dir / "history"
 
-    session: PromptSession[str] = PromptSession(history=FileHistory(str(history_file)))
+    prompt_session: PromptSession[str] = PromptSession(
+        history=FileHistory(str(history_file))
+    )
 
     console.print("[dim]Interactive mode. Type 'exit' or 'quit' to exit.[/dim]")
     console.print()
@@ -284,7 +387,7 @@ async def interactive_loop(agent: Agent, console: Console) -> None:
         try:
             user_input = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: session.prompt("You: ")
+                lambda: prompt_session.prompt("You: ")
             )
 
             user_input = user_input.strip()
@@ -297,6 +400,11 @@ async def interactive_loop(agent: Agent, console: Console) -> None:
                 break
 
             await agent.run(user_input)
+
+            # Save session after each turn
+            if session_mgr:
+                session_mgr.update_from_context(agent.context, user_input)
+
             console.print()
 
         except KeyboardInterrupt:
@@ -310,6 +418,27 @@ def main() -> None:
     """Main entry point."""
     console = Console()
     args = parse_args()
+
+    # Initialize session manager
+    session_mgr = SessionManager()
+
+    # Handle session management commands (don't need config)
+    if args.sessions:
+        show_sessions_list(console, session_mgr)
+        return
+
+    if args.delete_session:
+        if session_mgr.delete(args.delete_session):
+            console.print(f"[green]✓[/green] Deleted session: [bold]{args.delete_session}[/bold]")
+        else:
+            console.print(f"[yellow]Session not found:[/yellow] {args.delete_session}")
+        return
+
+    if args.clear_sessions:
+        if Confirm.ask("[yellow]Delete all sessions?[/yellow]", default=False):
+            count = session_mgr.clear_all()
+            console.print(f"[green]✓[/green] Deleted {count} session(s)")
+        return
 
     # Handle explicit init command
     if args.prompt == "init":
@@ -359,16 +488,196 @@ def main() -> None:
     if not args.no_logo:
         display_logo(console)
 
+    # Handle session resume
+    session_name: str | None = None
+    resume_prompt: str | None = None
+
+    if args.resume:
+        if args.resume == "__MOST_RECENT__":
+            # Resume most recent session
+            session = session_mgr.load_most_recent()
+            if session:
+                session_name = session.name
+                resume_prompt = session_mgr.get_resume_prompt()
+                console.print(f"[green]✓[/green] Resuming session: [bold]{session.name}[/bold]")
+                if session.original_task:
+                    task_preview = session.original_task[:60]
+                    if len(session.original_task) > 60:
+                        task_preview += "..."
+                    console.print(f"[dim]  Task: {task_preview}[/dim]")
+                console.print()
+            else:
+                console.print("[yellow]No sessions to resume.[/yellow]")
+                console.print("[dim]Starting new session...[/dim]")
+                console.print()
+        else:
+            # Resume by number
+            try:
+                idx = int(args.resume) - 1
+                sessions = session_mgr.list_sessions()
+                sessions.sort(key=lambda s: s.updated, reverse=True)
+                if 0 <= idx < len(sessions):
+                    session = session_mgr.load(sessions[idx].name)
+                    if session:
+                        session_name = session.name
+                        resume_prompt = session_mgr.get_resume_prompt()
+                        console.print(
+                            f"[green]✓[/green] Resuming session: [bold]{session.name}[/bold]"
+                        )
+                        console.print()
+                else:
+                    console.print(f"[red]Invalid session number:[/red] {args.resume}")
+                    show_sessions_list(console, session_mgr)
+                    return
+            except ValueError:
+                # Treat as session name
+                session = session_mgr.load(args.resume)
+                if session:
+                    session_name = session.name
+                    resume_prompt = session_mgr.get_resume_prompt()
+                    console.print(f"[green]✓[/green] Resuming session: [bold]{session.name}[/bold]")
+                    console.print()
+                else:
+                    console.print(f"[yellow]Session not found:[/yellow] {args.resume}")
+                    show_sessions_list(console, session_mgr)
+                    return
+
+    elif args.session:
+        # Use or create named session
+        session_name = args.session
+        session = session_mgr.load(session_name)
+        if session:
+            resume_prompt = session_mgr.get_resume_prompt()
+            console.print(f"[green]✓[/green] Resuming session: [bold]{session_name}[/bold]")
+            console.print()
+        else:
+            session_mgr.create(name=session_name)
+            console.print(f"[green]✓[/green] Created new session: [bold]{session_name}[/bold]")
+            console.print()
+
+    elif not args.new_session:
+        # Check if there's a recent session to resume
+        sessions = session_mgr.list_sessions()
+        recent_session = None
+
+        if sessions:
+            # Find the most recent session with actual content
+            sessions.sort(key=lambda s: s.updated, reverse=True)
+            for sess in sessions:
+                if sess.original_task:  # Has a task = has content worth resuming
+                    recent_session = sess
+                    break
+
+        if recent_session:
+            # Ask user if they want to resume
+            task_preview = recent_session.original_task or ""
+            if len(task_preview) > 50:
+                task_preview = task_preview[:50] + "..."
+
+            console.print(
+                f"[cyan]📂 Found previous session:[/cyan] [bold]{recent_session.name}[/bold]"
+            )
+            console.print(f"[dim]   Task: {task_preview}[/dim]")
+            console.print()
+
+            choice = Prompt.ask(
+                "Resume this session?",
+                choices=["y", "n", "l"],
+                default="y",
+                show_choices=True,
+            )
+            console.print()
+
+            if choice == "y":
+                session = session_mgr.load(recent_session.name)
+                if session:
+                    session_name = session.name
+                    resume_prompt = session_mgr.get_resume_prompt()
+                    console.print(f"[green]✓[/green] Resuming session: [bold]{session.name}[/bold]")
+                    console.print()
+            elif choice == "l":
+                # List all sessions
+                show_sessions_list(console, session_mgr)
+                console.print()
+                session_choice = Prompt.ask(
+                    "Enter session # or name (or press Enter for new)",
+                    default=""
+                )
+                if session_choice:
+                    try:
+                        idx = int(session_choice) - 1
+                        if 0 <= idx < len(sessions):
+                            session = session_mgr.load(sessions[idx].name)
+                            if session:
+                                session_name = session.name
+                                resume_prompt = session_mgr.get_resume_prompt()
+                                console.print(
+                                    f"[green]✓[/green] Resuming: [bold]{session.name}[/bold]"
+                                )
+                                console.print()
+                    except ValueError:
+                        # Treat as session name
+                        session = session_mgr.load(session_choice)
+                        if session:
+                            session_name = session.name
+                            resume_prompt = session_mgr.get_resume_prompt()
+                            console.print(f"[green]✓[/green] Resuming: [bold]{session.name}[/bold]")
+                            console.print()
+
+                if not session_name:
+                    # New session
+                    session_name = "default"
+                    session_mgr.create(name=session_name)
+                    console.print("[green]✓[/green] Starting new session")
+                    console.print()
+            else:
+                # Start fresh with default session
+                session_name = "default"
+                # Clear default session or create new
+                session_mgr.create(name=session_name)
+                console.print("[green]✓[/green] Starting new session")
+                console.print()
+        else:
+            # No previous sessions - just create default
+            session_name = "default"
+            session = session_mgr.load(session_name)
+            if not session:
+                session_mgr.create(name=session_name)
+
+    else:
+        # --new-session: create a timestamped session
+        from datetime import datetime
+        session_name = f"session-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        session_mgr.create(name=session_name)
+        console.print(f"[green]✓[/green] Created new session: [bold]{session_name}[/bold]")
+        console.print()
+
     # Create agent
     agent = Agent(config, console)
+
+    # Restore context from session if resuming
+    if session_mgr.current:
+        session_mgr.restore_to_context(agent.context)
 
     # Run
     if args.prompt:
         # Single prompt mode
         asyncio.run(agent.run(args.prompt))
+        # Save session after single prompt
+        session_mgr.update_from_context(agent.context, args.prompt)
+    elif resume_prompt and not args.prompt:
+        # Resuming - show what we're continuing
+        console.print("[dim]─" * 50 + "[/dim]")
+        console.print("[bold cyan]📋 Session Context:[/bold cyan]")
+        for line in resume_prompt.split("\n")[:8]:  # Show first 8 lines
+            console.print(f"[dim]  {line}[/dim]")
+        console.print("[dim]─" * 50 + "[/dim]")
+        console.print()
+        # Enter interactive mode
+        asyncio.run(interactive_loop(agent, console, session_mgr))
     else:
         # Interactive mode
-        asyncio.run(interactive_loop(agent, console))
+        asyncio.run(interactive_loop(agent, console, session_mgr))
 
 
 if __name__ == "__main__":
