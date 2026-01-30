@@ -167,3 +167,33 @@ def load_config(
         verbose=verbose,
         auto_approve_all=auto_approve_all,
     )
+
+
+def add_auto_approve_tool(tool_name: str, config_path: str | None = None) -> None:
+    """Add a tool to the auto_approve list in config file."""
+    path = Path(config_path) if config_path else get_config_path()
+
+    # Load existing config or create new
+    if path.exists():
+        with open(path) as f:
+            data = yaml.safe_load(f) or {}
+    else:
+        data = {}
+
+    # Ensure permissions section exists
+    if "permissions" not in data:
+        data["permissions"] = {}
+
+    if "auto_approve" not in data["permissions"]:
+        data["permissions"]["auto_approve"] = []
+
+    # Add tool if not already in list
+    if tool_name not in data["permissions"]["auto_approve"]:
+        data["permissions"]["auto_approve"].append(tool_name)
+
+        # Ensure directory exists
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Save back to file
+        with open(path, "w") as f:
+            yaml.dump(data, f, default_flow_style=False, allow_unicode=True)

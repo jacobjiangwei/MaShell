@@ -184,13 +184,29 @@ mashell "your task"
 | Task | Example |
 |------|---------|
 | **Find files** | `"find the largest video on my computer"` |
+| **Read documents** | `"read my resume.pdf and summarize it"` |
+| **Edit Word files** | `"update my resume.docx with new job title"` |
 | **Create projects** | `"build a Python web scraper from scratch"` |
 | **Run code** | `"run this script and fix any errors"` |
 | **Git operations** | `"commit all changes with a good message"` |
+| **Web scraping** | `"scrape the HN front page for top stories"` |
 | **Install tools** | `"install ffmpeg and convert video.mp4 to gif"` |
 | **System tasks** | `"clean up files older than 30 days in Downloads"` |
 | **Debug** | `"why is my Python script failing?"` |
-| **Explore** | `"what's taking up space on my disk?"` |
+
+### Native File Tools (No Shell Required)
+
+MaShell has built-in tools for file operations — faster and no permission prompts for reading:
+
+| Tool | Description | Permission |
+|------|-------------|------------|
+| `read_file` | Read any file (supports **PDF**, **Word .docx**, text) | Auto ✅ |
+| `list_dir` | List directory contents with sizes | Auto ✅ |
+| `search_files` | Search/grep across files | Auto ✅ |
+| `write_file` | Write text files | Requires approval |
+| `edit_docx` | Edit Word documents (find/replace, update paragraphs) | Requires approval |
+| `shell` | Execute any shell command | Requires approval |
+| `crawl` | Scrape web pages (JS rendering) | Requires approval |
 
 ---
 

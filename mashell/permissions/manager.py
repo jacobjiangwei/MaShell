@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from mashell.config import PermissionConfig
+from mashell.config import PermissionConfig, add_auto_approve_tool
 from mashell.permissions.ui import PermissionUI
 
 
@@ -42,7 +42,7 @@ class PermissionManager:
         if self.auto_approve_all:
             return PermissionResult(approved=True)
 
-        # Check if in auto-approve list
+        # Check if in auto-approve list (from config file)
         if request.tool_name in self.config.auto_approve:
             return PermissionResult(approved=True)
 
@@ -56,5 +56,10 @@ class PermissionManager:
         # Remember if user said "always"
         if result.remember and result.approved:
             self.session_approved.add(request.tool_name)
+            # Also persist to config file for future sessions
+            try:
+                add_auto_approve_tool(request.tool_name)
+            except Exception:
+                pass  # Silently fail if can't write config
 
         return result
