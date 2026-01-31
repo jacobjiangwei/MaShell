@@ -8,6 +8,7 @@ from mashell.providers.base import Message
 @dataclass
 class TaskMemory:
     """Persistent memory of the current task."""
+
     original_task: str = ""
     current_step: int = 0
     total_steps: int = 0
@@ -43,10 +44,12 @@ class ContextManager:
 
         # Add summary as first user message if we have compressed history
         if self.summary:
-            result.append(Message(
-                role="user",
-                content=f"[Previous conversation summary]\n{self.summary}\n[End summary]",
-            ))
+            result.append(
+                Message(
+                    role="user",
+                    content=f"[Previous conversation summary]\n{self.summary}\n[End summary]",
+                )
+            )
 
         # Add recent messages
         result.extend(self.messages)
@@ -85,8 +88,8 @@ class ContextManager:
             return
 
         # Keep only recent messages
-        old_messages = self.messages[:-self.max_recent]
-        self.messages = self.messages[-self.max_recent:]
+        old_messages = self.messages[: -self.max_recent]
+        self.messages = self.messages[-self.max_recent :]
 
         # Generate summary from old messages
         new_summary_parts = []

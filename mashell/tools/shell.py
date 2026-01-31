@@ -44,20 +44,14 @@ class ShellTool(BaseTool):
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "command": {
-                "type": "string",
-                "description": "The shell command to execute"
-            },
+            "command": {"type": "string", "description": "The shell command to execute"},
             "working_dir": {
                 "type": "string",
-                "description": "Working directory for the command (optional)"
+                "description": "Working directory for the command (optional)",
             },
-            "timeout": {
-                "type": "integer",
-                "description": "Timeout in seconds (default: 120)"
-            }
+            "timeout": {"type": "integer", "description": "Timeout in seconds (default: 120)"},
         },
-        "required": ["command"]
+        "required": ["command"],
     }
 
     requires_permission = True
@@ -137,8 +131,4 @@ class ShellTool(BaseTool):
         first_part = "\n".join(lines[:keep_lines])
         last_part = "\n".join(lines[-keep_lines:])
 
-        return (
-            f"{first_part}\n\n"
-            f"[... {total_lines - max_lines} lines omitted ...]\n\n"
-            f"{last_part}"
-        )
+        return f"{first_part}\n\n[... {total_lines - max_lines} lines omitted ...]\n\n{last_part}"

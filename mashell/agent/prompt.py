@@ -26,13 +26,17 @@ def get_system_prompt(working_dir: str | None = None) -> str:
     shell = os.environ.get("SHELL", "/bin/bash")
     user = os.environ.get("USER", "user")
 
-    macos_notes = """
+    macos_notes = (
+        """
 ## macOS Specific Notes
 - Use `brew` for package management
 - Use `open` to open files/URLs in default app
 - Use `pbcopy`/`pbpaste` for clipboard
 - `sed -i ''` (empty string) for in-place editing
-""" if system_name == "Darwin" else ""
+"""
+        if system_name == "Darwin"
+        else ""
+    )
 
     return f"""You are MaShell, an autonomous problem-solving agent.
 
@@ -146,14 +150,12 @@ def get_task_memory_prompt(
     """Generate a task memory prompt to maintain context."""
 
     progress_text = "\n".join(
-        f"  {'✓' if i < current_step else '→' if i == current_step else '○'} Step {i+1}: {p}"
+        f"  {'✓' if i < current_step else '→' if i == current_step else '○'} Step {i + 1}: {p}"
         for i, p in enumerate(progress)
     )
 
     decisions_text = (
-        "\n".join(f"  - {d}" for d in key_decisions)
-        if key_decisions
-        else "  (none yet)"
+        "\n".join(f"  - {d}" for d in key_decisions) if key_decisions else "  (none yet)"
     )
 
     return f"""

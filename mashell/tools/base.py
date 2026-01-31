@@ -8,6 +8,7 @@ from typing import Any
 @dataclass
 class ToolResult:
     """Result of a tool execution."""
+
     success: bool
     output: str
     error: str | None = None
@@ -35,7 +36,7 @@ class BaseTool(ABC):
                 "name": self.name,
                 "description": self.description,
                 "parameters": self.parameters,
-            }
+            },
         }
 
 

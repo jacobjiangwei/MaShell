@@ -12,7 +12,7 @@ HORSE_FRAME_1 = [
     r"                   >>\.                ",
     r"                  /_  )`.              ",
     r"                 /  _)`^)`.   _.---. _ ",
-    "                (_,' \\  `^-)\"\"      `.\\",
+    '                (_,\' \\  `^-)""      `.\\',
     r"                      |  | \           ",
     r"                      \              / |",
     r"                     / \  /.___.'\  (\ (_",
@@ -26,7 +26,7 @@ HORSE_FRAME_2 = [
     r"                   >>\.                ",
     r"                  /_  )`.              ",
     r"                 /  _)`^)`.   _.---. _ ",
-    "                (_,' \\  `^-)\"\"      `.\\",
+    '                (_,\' \\  `^-)""      `.\\',
     r"                      |  | \           ",
     r"                      \              / |",
     r"                     / \  /.___.'\  (\ (_",
@@ -72,8 +72,8 @@ TAGLINE = "🐴 Your AI-Powered Command Line Assistant"
 def clear_screen_area(lines: int) -> None:
     """Move cursor up and clear lines."""
     for _ in range(lines):
-        sys.stdout.write('\033[F')  # Move up
-        sys.stdout.write('\033[K')  # Clear line
+        sys.stdout.write("\033[F")  # Move up
+        sys.stdout.write("\033[K")  # Clear line
 
 
 def display_logo(console: Console | None = None, animate: bool = True) -> None:
@@ -92,7 +92,7 @@ def display_logo(console: Console | None = None, animate: bool = True) -> None:
         horse_width = len(HORSE_FRAME_1[0])
         horse_height = len(HORSE_FRAME_1)
         num_horses = 3  # Number of horses in the stampede
-        spacing = 45    # Space between horses (wider for bigger horses)
+        spacing = 45  # Space between horses (wider for bigger horses)
 
         # Start position (off screen to the right)
         start_pos = term_width + 10
@@ -158,7 +158,7 @@ def display_logo(console: Console | None = None, animate: bool = True) -> None:
         time.sleep(0.2)
 
         # Now reveal MASHELL text with a typing effect
-        logo_lines = LOGO.strip().split('\n')
+        logo_lines = LOGO.strip().split("\n")
 
         # Print empty lines first
         for _ in range(len(logo_lines)):

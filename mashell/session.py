@@ -54,6 +54,7 @@ def _deserialize_message(data: dict[str, Any]) -> Message:
 @dataclass
 class CommandHistoryEntry:
     """A record of a command that was executed."""
+
     tool: str
     args: dict[str, Any]
     timestamp: str
@@ -63,6 +64,7 @@ class CommandHistoryEntry:
 @dataclass
 class SessionData:
     """Persistent session data."""
+
     id: str
     name: str
     created: str
@@ -99,6 +101,7 @@ class SessionManager:
     def _generate_id(self) -> str:
         """Generate a unique session ID."""
         import uuid
+
         return f"sess_{uuid.uuid4().hex[:8]}"
 
     def _now_iso(self) -> str:
@@ -255,10 +258,7 @@ class SessionManager:
         context.summary = session.summary
 
         # Restore recent messages
-        context.messages = [
-            _deserialize_message(msg_data)
-            for msg_data in session.recent_messages
-        ]
+        context.messages = [_deserialize_message(msg_data) for msg_data in session.recent_messages]
 
     def add_command(
         self,
@@ -289,8 +289,9 @@ class SessionManager:
         # Keep history bounded
         max_history = 100
         if len(self._current_session.command_history) > max_history:
-            self._current_session.command_history = \
-                self._current_session.command_history[-max_history:]
+            self._current_session.command_history = self._current_session.command_history[
+                -max_history:
+            ]
 
     def get_resume_prompt(self) -> str | None:
         """Generate a prompt to resume the session."""

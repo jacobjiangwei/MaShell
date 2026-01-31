@@ -14,10 +14,10 @@ def is_binary(data: bytes, sample_size: int = 8192) -> bool:
     if not data:
         return False  # Empty file is not binary
     # Check for null bytes (strong indicator of binary)
-    if b'\x00' in data[:sample_size]:
+    if b"\x00" in data[:sample_size]:
         return True
     # Check ratio of non-text bytes
-    text_chars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7f})
+    text_chars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F})
     check_size = min(len(data), sample_size)
     non_text = sum(1 for byte in data[:check_size] if byte not in text_chars)
     return non_text / check_size > 0.30
@@ -66,20 +66,17 @@ Handles binary files, large files, and encoding issues gracefully.
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "path": {
-                "type": "string",
-                "description": "Path to the file to read"
-            },
+            "path": {"type": "string", "description": "Path to the file to read"},
             "start_line": {
                 "type": "integer",
-                "description": "Start reading from this line (1-indexed, optional)"
+                "description": "Start reading from this line (1-indexed, optional)",
             },
             "end_line": {
                 "type": "integer",
-                "description": "Stop reading at this line (inclusive, optional)"
-            }
+                "description": "Stop reading at this line (inclusive, optional)",
+            },
         },
-        "required": ["path"]
+        "required": ["path"],
     }
 
     requires_permission = False  # Reading is safe
@@ -89,6 +86,7 @@ Handles binary files, large files, and encoding issues gracefully.
         """Try to read PDF file content."""
         try:
             import pdfplumber
+
             text_parts = []
             with pdfplumber.open(file_path) as pdf:
                 for i, page in enumerate(pdf.pages, 1):
@@ -105,6 +103,7 @@ Handles binary files, large files, and encoding issues gracefully.
         """Try to read Word document content."""
         try:
             from docx import Document
+
             doc = Document(str(file_path))
             paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
             return "\n\n".join(paragraphs) if paragraphs else None
@@ -125,18 +124,10 @@ Handles binary files, large files, and encoding issues gracefully.
             file_path = Path(path).expanduser()
 
             if not file_path.exists():
-                return ToolResult(
-                    success=False,
-                    output="",
-                    error=f"File not found: {path}"
-                )
+                return ToolResult(success=False, output="", error=f"File not found: {path}")
 
             if not file_path.is_file():
-                return ToolResult(
-                    success=False,
-                    output="",
-                    error=f"Not a file: {path}"
-                )
+                return ToolResult(success=False, output="", error=f"Not a file: {path}")
 
             # Check for special file types
             suffix = file_path.suffix.lower()
@@ -148,7 +139,7 @@ Handles binary files, large files, and encoding issues gracefully.
                     return ToolResult(
                         success=False,
                         output="",
-                        error="Cannot read PDF (install pdfplumber: pip install pdfplumber)"
+                        error="Cannot read PDF (install pdfplumber: pip install pdfplumber)",
                     )
                 output = f"[{path}] (PDF)\n\n{content}"
                 return ToolResult(success=True, output=smart_truncate(output, max_lines=1000))
@@ -157,16 +148,14 @@ Handles binary files, large files, and encoding issues gracefully.
             if suffix in (".docx", ".doc"):
                 if suffix == ".doc":
                     return ToolResult(
-                        success=False,
-                        output="",
-                        error="Old .doc format not supported, only .docx"
+                        success=False, output="", error="Old .doc format not supported, only .docx"
                     )
                 content = self._read_docx(file_path)
                 if content is None:
                     return ToolResult(
                         success=False,
                         output="",
-                        error="Cannot read DOCX (install python-docx: pip install python-docx)"
+                        error="Cannot read DOCX (install python-docx: pip install python-docx)",
                     )
                 output = f"[{path}] (Word Document)\n\n{content}"
                 return ToolResult(success=True, output=smart_truncate(output, max_lines=1000))
@@ -176,10 +165,7 @@ Handles binary files, large files, and encoding issues gracefully.
 
             if is_binary(raw_data):
                 size = len(raw_data)
-                return ToolResult(
-                    success=True,
-                    output=f"[Binary file, {size:,} bytes]"
-                )
+                return ToolResult(success=True, output=f"[Binary file, {size:,} bytes]")
 
             # Try to decode
             try:
@@ -189,9 +175,7 @@ Handles binary files, large files, and encoding issues gracefully.
                     content = raw_data.decode("latin-1")
                 except UnicodeDecodeError:
                     return ToolResult(
-                        success=False,
-                        output="",
-                        error=f"Unable to decode file: {path}"
+                        success=False, output="", error=f"Unable to decode file: {path}"
                     )
 
             # Handle line range
@@ -222,17 +206,9 @@ Handles binary files, large files, and encoding issues gracefully.
             return ToolResult(success=True, output=output)
 
         except PermissionError:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Permission denied: {path}"
-            )
+            return ToolResult(success=False, output="", error=f"Permission denied: {path}")
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Error reading file: {e}"
-            )
+            return ToolResult(success=False, output="", error=f"Error reading file: {e}")
 
 
 class ListDirTool(BaseTool):
@@ -260,27 +236,19 @@ Returns a structured view of files and subdirectories with:
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "path": {
-                "type": "string",
-                "description": "Directory path to list",
-                "default": "."
-            },
+            "path": {"type": "string", "description": "Directory path to list", "default": "."},
             "pattern": {
                 "type": "string",
-                "description": "Glob pattern to filter files (e.g., '*.py')"
+                "description": "Glob pattern to filter files (e.g., '*.py')",
             },
-            "recursive": {
-                "type": "boolean",
-                "description": "List recursively",
-                "default": False
-            },
+            "recursive": {"type": "boolean", "description": "List recursively", "default": False},
             "max_depth": {
                 "type": "integer",
                 "description": "Maximum depth for recursive listing",
-                "default": 3
-            }
+                "default": 3,
+            },
         },
-        "required": []
+        "required": [],
     }
 
     requires_permission = False
@@ -325,8 +293,7 @@ Returns a structured view of files and subdirectories with:
                         entries.append(f"{prefix}{item.name}/")
                     # Always recurse (to find matching files inside)
                     sub_entries = self._list_entries(
-                        item, pattern, recursive, max_depth,
-                        current_depth + 1, prefix + "  "
+                        item, pattern, recursive, max_depth, current_depth + 1, prefix + "  "
                     )
                     # Only add directory header if it has matching contents
                     if sub_entries and not (pattern and fnmatch.fnmatch(item.name, pattern)):
@@ -361,18 +328,10 @@ Returns a structured view of files and subdirectories with:
             dir_path = Path(path).expanduser()
 
             if not dir_path.exists():
-                return ToolResult(
-                    success=False,
-                    output="",
-                    error=f"Directory not found: {path}"
-                )
+                return ToolResult(success=False, output="", error=f"Directory not found: {path}")
 
             if not dir_path.is_dir():
-                return ToolResult(
-                    success=False,
-                    output="",
-                    error=f"Not a directory: {path}"
-                )
+                return ToolResult(success=False, output="", error=f"Not a directory: {path}")
 
             entries = self._list_entries(dir_path, pattern, recursive, max_depth)
 
@@ -389,17 +348,9 @@ Returns a structured view of files and subdirectories with:
             return ToolResult(success=True, output=output)
 
         except PermissionError:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Permission denied: {path}"
-            )
+            return ToolResult(success=False, output="", error=f"Permission denied: {path}")
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Error listing directory: {e}"
-            )
+            return ToolResult(success=False, output="", error=f"Error listing directory: {e}")
 
 
 class SearchFilesTool(BaseTool):
@@ -426,36 +377,33 @@ Returns matching lines with file paths and line numbers.
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "pattern": {
-                "type": "string",
-                "description": "Text or regex pattern to search for"
-            },
+            "pattern": {"type": "string", "description": "Text or regex pattern to search for"},
             "path": {
                 "type": "string",
                 "description": "Directory or file to search in",
-                "default": "."
+                "default": ".",
             },
             "file_pattern": {
                 "type": "string",
-                "description": "Glob pattern for files to search (e.g., '*.py')"
+                "description": "Glob pattern for files to search (e.g., '*.py')",
             },
             "is_regex": {
                 "type": "boolean",
                 "description": "Treat pattern as regex",
-                "default": False
+                "default": False,
             },
             "ignore_case": {
                 "type": "boolean",
                 "description": "Case-insensitive search",
-                "default": True
+                "default": True,
             },
             "max_results": {
                 "type": "integer",
                 "description": "Maximum number of results",
-                "default": 100
-            }
+                "default": 100,
+            },
         },
-        "required": ["pattern"]
+        "required": ["pattern"],
     }
 
     requires_permission = False
@@ -509,11 +457,7 @@ Returns matching lines with file paths and line numbers.
             search_path = Path(path).expanduser()
 
             if not search_path.exists():
-                return ToolResult(
-                    success=False,
-                    output="",
-                    error=f"Path not found: {path}"
-                )
+                return ToolResult(success=False, output="", error=f"Path not found: {path}")
 
             # Compile pattern
             flags = re.IGNORECASE if ignore_case else 0
@@ -523,11 +467,7 @@ Returns matching lines with file paths and line numbers.
                 else:
                     regex = re.compile(re.escape(pattern), flags)
             except re.error as e:
-                return ToolResult(
-                    success=False,
-                    output="",
-                    error=f"Invalid regex pattern: {e}"
-                )
+                return ToolResult(success=False, output="", error=f"Invalid regex pattern: {e}")
 
             results: list[str] = []
 
@@ -568,11 +508,7 @@ Returns matching lines with file paths and line numbers.
             return ToolResult(success=True, output=output)
 
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Error searching: {e}"
-            )
+            return ToolResult(success=False, output="", error=f"Error searching: {e}")
 
 
 class WriteFileTool(BaseTool):
@@ -595,16 +531,10 @@ Creates parent directories as needed.
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "path": {
-                "type": "string",
-                "description": "Path to the file to write"
-            },
-            "content": {
-                "type": "string",
-                "description": "Content to write to the file"
-            }
+            "path": {"type": "string", "description": "Path to the file to write"},
+            "content": {"type": "string", "description": "Content to write to the file"},
         },
-        "required": ["path", "content"]
+        "required": ["path", "content"],
     }
 
     requires_permission = True  # Writing requires confirmation
@@ -630,22 +560,13 @@ Creates parent directories as needed.
             size = len(content.encode("utf-8"))
 
             return ToolResult(
-                success=True,
-                output=f"Wrote {lines} lines ({size:,} bytes) to {path}"
+                success=True, output=f"Wrote {lines} lines ({size:,} bytes) to {path}"
             )
 
         except PermissionError:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Permission denied: {path}"
-            )
+            return ToolResult(success=False, output="", error=f"Permission denied: {path}")
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Error writing file: {e}"
-            )
+            return ToolResult(success=False, output="", error=f"Error writing file: {e}")
 
 
 class EditDocxTool(BaseTool):
@@ -681,10 +602,7 @@ edit_docx("resume.docx", [
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "path": {
-                "type": "string",
-                "description": "Path to the .docx file to edit"
-            },
+            "path": {"type": "string", "description": "Path to the .docx file to edit"},
             "operations": {
                 "type": "array",
                 "description": "List of edit operations",
@@ -694,30 +612,30 @@ edit_docx("resume.docx", [
                         "type": {
                             "type": "string",
                             "enum": ["find_replace", "insert_after", "update_paragraph"],
-                            "description": "Type of edit operation"
+                            "description": "Type of edit operation",
                         },
                         "find": {
                             "type": "string",
-                            "description": "Text to search for (partial match)"
+                            "description": "Text to search for (partial match)",
                         },
                         "replace": {
                             "type": "string",
-                            "description": "Replacement text (for find_replace)"
+                            "description": "Replacement text (for find_replace)",
                         },
                         "text": {
                             "type": "string",
-                            "description": "New text content (for insert_after, update_paragraph)"
-                        }
+                            "description": "New text content (for insert_after, update_paragraph)",
+                        },
                     },
-                    "required": ["type", "find"]
-                }
+                    "required": ["type", "find"],
+                },
             },
             "save_as": {
                 "type": "string",
-                "description": "Optional: Save to a new file path instead of overwriting"
-            }
+                "description": "Optional: Save to a new file path instead of overwriting",
+            },
         },
-        "required": ["path", "operations"]
+        "required": ["path", "operations"],
     }
 
     requires_permission = True
@@ -737,25 +655,17 @@ edit_docx("resume.docx", [
             return ToolResult(
                 success=False,
                 output="",
-                error="python-docx not installed. Run: pip install python-docx"
+                error="python-docx not installed. Run: pip install python-docx",
             )
 
         try:
             file_path = Path(path).expanduser()
 
             if not file_path.exists():
-                return ToolResult(
-                    success=False,
-                    output="",
-                    error=f"File not found: {path}"
-                )
+                return ToolResult(success=False, output="", error=f"File not found: {path}")
 
             if file_path.suffix.lower() != ".docx":
-                return ToolResult(
-                    success=False,
-                    output="",
-                    error=f"Not a .docx file: {path}"
-                )
+                return ToolResult(success=False, output="", error=f"Not a .docx file: {path}")
 
             doc = Document(str(file_path))
             changes = []
@@ -772,19 +682,14 @@ edit_docx("resume.docx", [
                             # Preserve runs structure for simple replacements
                             for run in para.runs:
                                 if find_text in run.text:
-                                    run.text = run.text.replace(
-                                        find_text, replace_text
-                                    )
+                                    run.text = run.text.replace(find_text, replace_text)
                                     count += 1
                     if count > 0:
                         changes.append(
-                            f"Replaced '{find_text}' → '{replace_text}' "
-                            f"({count} occurrences)"
+                            f"Replaced '{find_text}' → '{replace_text}' ({count} occurrences)"
                         )
                     else:
-                        changes.append(
-                            f"⚠️ '{find_text}' not found for replacement"
-                        )
+                        changes.append(f"⚠️ '{find_text}' not found for replacement")
 
                 elif op_type == "update_paragraph":
                     new_text = op.get("text", "")
@@ -794,15 +699,12 @@ edit_docx("resume.docx", [
                             old_text = para.text
                             para.text = new_text
                             changes.append(
-                                f"Updated paragraph: '{old_text[:40]}...' "
-                                f"→ '{new_text[:40]}...'"
+                                f"Updated paragraph: '{old_text[:40]}...' → '{new_text[:40]}...'"
                             )
                             found = True
                             break
                     if not found:
-                        changes.append(
-                            f"⚠️ Paragraph containing '{find_text}' not found"
-                        )
+                        changes.append(f"⚠️ Paragraph containing '{find_text}' not found")
 
                 elif op_type == "insert_after":
                     new_text = op.get("text", "")
@@ -814,15 +716,12 @@ edit_docx("resume.docx", [
                             new_p = doc.add_paragraph(new_text)._element
                             new_para.addnext(new_p)
                             changes.append(
-                                f"Inserted after '{find_text[:30]}...': "
-                                f"'{new_text[:40]}...'"
+                                f"Inserted after '{find_text[:30]}...': '{new_text[:40]}...'"
                             )
                             found = True
                             break
                     if not found:
-                        changes.append(
-                            f"⚠️ Paragraph '{find_text}' not found for insert"
-                        )
+                        changes.append(f"⚠️ Paragraph '{find_text}' not found for insert")
 
                 else:
                     changes.append(f"⚠️ Unknown operation type: {op_type}")
@@ -834,13 +733,8 @@ edit_docx("resume.docx", [
 
             summary = "\n".join(f"  • {c}" for c in changes)
             return ToolResult(
-                success=True,
-                output=f"Edited Word document:\n{summary}\n\nSaved to: {output_path}"
+                success=True, output=f"Edited Word document:\n{summary}\n\nSaved to: {output_path}"
             )
 
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Error editing document: {e}"
-            )
+            return ToolResult(success=False, output="", error=f"Error editing document: {e}")

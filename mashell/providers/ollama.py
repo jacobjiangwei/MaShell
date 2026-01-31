@@ -89,9 +89,11 @@ class OllamaProvider(BaseProvider):
         tool_calls = []
         for i, tc in enumerate(raw_tool_calls):
             func = tc.get("function", {})
-            tool_calls.append(ToolCall(
-                id=f"call_{i}",
-                name=func.get("name", ""),
-                arguments=func.get("arguments", {}),
-            ))
+            tool_calls.append(
+                ToolCall(
+                    id=f"call_{i}",
+                    name=func.get("name", ""),
+                    arguments=func.get("arguments", {}),
+                )
+            )
         return tool_calls

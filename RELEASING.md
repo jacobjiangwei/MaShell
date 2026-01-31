@@ -91,8 +91,8 @@ brew install mashell
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
 | `ci.yml` | Push/PR to main | Run tests, lint, type check |
-| `publish.yml` | Release published | Upload to PyPI |
-| `homebrew.yml` | Release published | Update Homebrew formula |
+| `publish.yml` | Push tag `v*` | Upload to PyPI |
+| `homebrew.yml` | Push tag `v*` | Update Homebrew formula |
 
 ---
 

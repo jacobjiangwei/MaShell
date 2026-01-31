@@ -8,6 +8,7 @@ from typing import Any
 @dataclass
 class Message:
     """A message in the conversation."""
+
     role: str  # "system", "user", "assistant", "tool"
     content: str | None
     tool_calls: list["ToolCall"] | None = None
@@ -28,6 +29,7 @@ class Message:
 @dataclass
 class ToolCall:
     """A tool call from the LLM."""
+
     id: str
     name: str
     arguments: dict[str, Any]
@@ -35,19 +37,21 @@ class ToolCall:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         import json
+
         return {
             "id": self.id,
             "type": "function",
             "function": {
                 "name": self.name,
                 "arguments": json.dumps(self.arguments),
-            }
+            },
         }
 
 
 @dataclass
 class Response:
     """Response from the LLM."""
+
     content: str | None
     tool_calls: list[ToolCall] | None
     finish_reason: str  # "stop", "tool_calls"
@@ -93,10 +97,12 @@ class BaseProvider(ABC):
             except json.JSONDecodeError:
                 args = {}
 
-            tool_calls.append(ToolCall(
-                id=tc.get("id", ""),
-                name=func.get("name", ""),
-                arguments=args,
-            ))
+            tool_calls.append(
+                ToolCall(
+                    id=tc.get("id", ""),
+                    name=func.get("name", ""),
+                    arguments=args,
+                )
+            )
 
         return tool_calls

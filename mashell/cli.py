@@ -4,15 +4,19 @@ import argparse
 import asyncio
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from mashell.agent.core import Agent
-from mashell.config import get_config_path, load_config
+from mashell.config import Config, get_config_path, load_config
 from mashell.logo import display_logo
 from mashell.session import SessionManager
+
+if TYPE_CHECKING:
+    pass
 
 # Provider presets for easy configuration
 PROVIDER_PRESETS = {
@@ -57,7 +61,7 @@ def run_init(console: Console) -> None:
     provider = Prompt.ask(
         "Select provider",
         choices=["openai", "azure", "anthropic", "ollama", "1", "2", "3", "4"],
-        default="openai"
+        default="openai",
     )
 
     # Map numbers to provider names
@@ -151,7 +155,7 @@ def run_init(console: Console) -> None:
     console.print(f"   Profile name: [bold]{profile_name}[/bold]")
     console.print()
     console.print("[bold]To use this profile:[/bold]")
-    console.print(f"   [cyan]mashell --profile {profile_name} \"your prompt here\"[/cyan]")
+    console.print(f'   [cyan]mashell --profile {profile_name} "your prompt here"[/cyan]')
     console.print()
 
     # Offer to test
@@ -177,9 +181,9 @@ def test_config(console: Console, profile_name: str, config_path: Path) -> None:
         )
 
         async def do_test() -> Response:
-            response = await provider.chat([
-                Message(role="user", content="Say 'Hello from MaShell!' in exactly those words.")
-            ])
+            response = await provider.chat(
+                [Message(role="user", content="Say 'Hello from MaShell!' in exactly those words.")]
+            )
             return response
 
         response = asyncio.run(do_test())
@@ -195,6 +199,158 @@ def test_config(console: Console, profile_name: str, config_path: Path) -> None:
         console.print("[dim]Please check your configuration and try again.[/dim]")
 
 
+def run_slack_init(console: Console) -> None:
+    """Interactive Slack configuration wizard."""
+    import webbrowser
+
+    import yaml
+
+    console.print("\n[bold cyan]🤖 MaShell Slack Bot Setup Wizard[/bold cyan]\n")
+    console.print("Let's set up your Slack bot integration.\n")
+
+    # Step 1: Open Slack App creation page
+    console.print("[bold]Step 1:[/bold] Create a Slack App")
+    console.print("  [dim]I'll open the Slack API page in your browser.[/dim]")
+    console.print("  [dim]Click 'Create New App' → 'From scratch'[/dim]")
+    console.print()
+
+    if Confirm.ask("Open Slack API page in browser?", default=True):
+        webbrowser.open("https://api.slack.com/apps")
+        console.print("[green]✓[/green] Opened browser\n")
+    else:
+        console.print("[dim]Go to: https://api.slack.com/apps[/dim]\n")
+
+    Prompt.ask("[dim]Press Enter when you've created your app...[/dim]")
+    console.print()
+
+    # Step 2: Enable Socket Mode and get App Token
+    console.print("[bold]Step 2:[/bold] Enable Socket Mode & Get App Token")
+    console.print("  [dim]In your Slack App settings:[/dim]")
+    console.print("  [dim]1. Left sidebar → 'Socket Mode'[/dim]")
+    console.print("  [dim]2. Toggle ON 'Enable Socket Mode'[/dim]")
+    console.print("  [dim]3. Create an App-Level Token with 'connections:write' scope[/dim]")
+    console.print("  [dim]4. Copy the token (starts with xapp-)[/dim]")
+    console.print()
+
+    app_token = Prompt.ask("Paste your App-Level Token (xapp-...)")
+    if not app_token.startswith("xapp-"):
+        console.print("[yellow]⚠️  Token should start with 'xapp-'. Continuing anyway...[/yellow]")
+    console.print("[green]✓[/green] App Token saved\n")
+
+    # Step 3: Add Bot Permissions
+    console.print("[bold]Step 3:[/bold] Add Bot Permissions")
+    console.print("  [dim]In your Slack App settings:[/dim]")
+    console.print("  [dim]1. Left sidebar → 'OAuth & Permissions'[/dim]")
+    console.print("  [dim]2. Scroll to 'Bot Token Scopes'[/dim]")
+    console.print("  [dim]3. Add these scopes:[/dim]")
+    console.print("     • [cyan]chat:write[/cyan] - Send messages")
+    console.print("     • [cyan]channels:history[/cyan] - Read public channel messages")
+    console.print("     • [cyan]groups:history[/cyan] - Read private channel messages")
+    console.print("     • [cyan]im:history[/cyan] - Read DMs")
+    console.print("     • [cyan]app_mentions:read[/cyan] - Detect @mentions")
+    console.print()
+
+    Prompt.ask("[dim]Press Enter when you've added the scopes...[/dim]")
+    console.print()
+
+    # Step 4: Subscribe to Events
+    console.print("[bold]Step 4:[/bold] Subscribe to Events")
+    console.print("  [dim]1. Left sidebar → 'Event Subscriptions'[/dim]")
+    console.print("  [dim]2. Toggle ON 'Enable Events'[/dim]")
+    console.print("  [dim]3. Expand 'Subscribe to bot events'[/dim]")
+    console.print("  [dim]4. Add these events:[/dim]")
+    console.print("     • [cyan]message.channels[/cyan]")
+    console.print("     • [cyan]message.groups[/cyan]")
+    console.print("     • [cyan]message.im[/cyan]")
+    console.print("     • [cyan]app_mention[/cyan]")
+    console.print()
+
+    Prompt.ask("[dim]Press Enter when you've added the events...[/dim]")
+    console.print()
+
+    # Step 5: Install App and get Bot Token
+    console.print("[bold]Step 5:[/bold] Install App & Get Bot Token")
+    console.print("  [dim]1. Left sidebar → 'Install App'[/dim]")
+    console.print("  [dim]2. Click 'Install to Workspace'[/dim]")
+    console.print("  [dim]3. Authorize the app[/dim]")
+    console.print("  [dim]4. Copy the 'Bot User OAuth Token' (starts with xoxb-)[/dim]")
+    console.print()
+
+    bot_token = Prompt.ask("Paste your Bot User OAuth Token (xoxb-...)")
+    if not bot_token.startswith("xoxb-"):
+        console.print("[yellow]⚠️  Token should start with 'xoxb-'. Continuing anyway...[/yellow]")
+    console.print("[green]✓[/green] Bot Token saved\n")
+
+    # Step 6: Configuration options
+    console.print("[bold]Step 6:[/bold] Bot Behavior")
+    respond_to_mentions = Confirm.ask(
+        "Only respond when @mentioned? (No = respond to all messages)", default=True
+    )
+    console.print()
+
+    # Step 7: Select profile to add Slack config
+    console.print("[bold]Step 7:[/bold] Save Configuration")
+
+    config_path = get_config_path()
+    if config_path.exists():
+        with open(config_path) as f:
+            config_data = yaml.safe_load(f) or {}
+    else:
+        config_data = {}
+
+    profiles = config_data.get("profiles", {})
+
+    if not profiles:
+        console.print("[yellow]No profiles found. Please run 'mashell init' first.[/yellow]")
+        return
+
+    if len(profiles) == 1:
+        profile_name = list(profiles.keys())[0]
+        console.print(f"  [dim]Adding to profile: {profile_name}[/dim]")
+    else:
+        profile_list = list(profiles.keys())
+        console.print("  [dim]Available profiles:[/dim]")
+        for i, name in enumerate(profile_list, 1):
+            console.print(f"    [dim]{i}.[/dim] {name}")
+        console.print()
+        choice = Prompt.ask("Select profile number", default="1")
+        try:
+            idx = int(choice) - 1
+            profile_name = profile_list[idx]
+        except (ValueError, IndexError):
+            profile_name = profile_list[0]
+
+    # Add Slack config to profile
+    profiles[profile_name]["slack"] = {
+        "bot_token": bot_token,
+        "app_token": app_token,
+        "respond_to_mentions_only": respond_to_mentions,
+    }
+
+    # Save config
+    config_data["profiles"] = profiles
+    with open(config_path, "w") as f:
+        yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True)
+
+    console.print(
+        f"\n[bold green]✅ Slack configuration saved to profile '{profile_name}'![/bold green]"
+    )
+    console.print()
+    console.print("[bold]To start your Slack bot:[/bold]")
+    console.print(f"  [cyan]mashell --profile {profile_name} --slack[/cyan]")
+    console.print()
+
+    # Offer to test
+    if Confirm.ask("Start the Slack bot now?", default=True):
+        console.print()
+        # Load config and start bot
+        config = load_config(profile=profile_name, config_path=str(config_path))
+        from mashell.agent.core import Agent
+
+        agent = Agent(config, console)
+        run_slack_bot(config, agent, console)
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -205,6 +361,8 @@ def parse_args() -> argparse.Namespace:
 Examples:
   mashell                                                         # Auto-starts setup if no config
   mashell init                                                    # Interactive setup wizard
+  mashell slack init                                              # Setup Slack bot integration
+  mashell --profile mybot --slack                                 # Start Slack bot mode
   mashell --provider ollama --url http://localhost:11434 --model qwen2.5:14b "list files"
   mashell --profile azure "refactor this code"
   mashell -y "update all packages"                                # auto-approve mode
@@ -214,7 +372,13 @@ Examples:
     parser.add_argument(
         "prompt",
         nargs="?",
-        help="Task prompt or command (use 'init' for setup wizard)",
+        help="Task prompt or command (use 'init' for setup, 'slack init' for Slack setup)",
+    )
+
+    parser.add_argument(
+        "subcommand",
+        nargs="?",
+        help="Subcommand (e.g., 'init' after 'slack')",
     )
 
     # Provider settings
@@ -241,18 +405,21 @@ Examples:
         help="Use a saved profile from config file",
     )
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         help="Path to config file",
     )
 
     # Behavior options
     parser.add_argument(
-        "-y", "--yes",
+        "-y",
+        "--yes",
         action="store_true",
         help="Auto-approve all commands (use with caution)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose output",
     )
@@ -264,24 +431,28 @@ Examples:
 
     # Session management
     parser.add_argument(
-        "-S", "--sessions",
+        "-S",
+        "--sessions",
         action="store_true",
         help="List all saved sessions",
     )
     parser.add_argument(
-        "-r", "--resume",
+        "-r",
+        "--resume",
         nargs="?",
         const="__MOST_RECENT__",
         metavar="N",
         help="Resume a session (most recent, or specify #N from list)",
     )
     parser.add_argument(
-        "-s", "--session",
+        "-s",
+        "--session",
         metavar="NAME",
         help="Use or create a named session",
     )
     parser.add_argument(
-        "-n", "--new-session",
+        "-n",
+        "--new-session",
         action="store_true",
         help="Force start a new session (don't resume)",
     )
@@ -296,6 +467,18 @@ Examples:
         help="Delete all saved sessions",
     )
 
+    # Slack integration
+    parser.add_argument(
+        "--slack",
+        action="store_true",
+        help="Start Slack bot mode (bidirectional communication)",
+    )
+    parser.add_argument(
+        "--no-slack",
+        action="store_true",
+        help="Disable auto Slack mode (use CLI even if Slack is configured)",
+    )
+
     return parser.parse_args()
 
 
@@ -308,7 +491,7 @@ def show_sessions_list(console: Console, session_mgr: SessionManager) -> list:
     if not sessions:
         console.print("[dim]No saved sessions found.[/dim]")
         console.print("\n[dim]Start a session with:[/dim]")
-        console.print("  [cyan]mashell -s my-project \"your task here\"[/cyan]")
+        console.print('  [cyan]mashell -s my-project "your task here"[/cyan]')
         return []
 
     # Sort by updated time, most recent first
@@ -360,6 +543,40 @@ def show_sessions_list(console: Console, session_mgr: SessionManager) -> list:
     return sessions
 
 
+def run_slack_bot(config: Config, agent: Agent, console: Console) -> None:
+    """Run MaShell as a Slack bot with bidirectional communication."""
+    if not config.slack:
+        console.print("[red]❌ Slack configuration not found![/red]")
+        console.print()
+        console.print("[bold]Run the setup wizard to configure Slack:[/bold]")
+        console.print("  [cyan]mashell slack init[/cyan]")
+        console.print()
+        sys.exit(1)
+
+    try:
+        from mashell.integrations.slack import SlackBot
+    except ImportError:
+        console.print("[red]❌ Slack dependencies not found![/red]")
+        console.print()
+        console.print("[bold]Try reinstalling mashell:[/bold]")
+        console.print("  [cyan]pip install --upgrade mashell[/cyan]")
+        sys.exit(1)
+
+    console.print("[bold cyan]🐚 MaShell Slack Bot[/bold cyan]")
+    console.print()
+    console.print(f"[dim]Provider: {config.provider.provider}[/dim]")
+    console.print(f"[dim]Model: {config.provider.model}[/dim]")
+    if config.slack.respond_to_mentions_only:
+        console.print("[dim]Mode: Respond to @mentions only[/dim]")
+    else:
+        console.print("[dim]Mode: Respond to all messages[/dim]")
+    console.print()
+
+    # Create and start Slack bot
+    bot = SlackBot(config.slack, agent, console)
+    bot.start()
+
+
 async def interactive_loop(
     agent: Agent,
     console: Console,
@@ -376,9 +593,7 @@ async def interactive_loop(
     history_dir.mkdir(exist_ok=True)
     history_file = history_dir / "history"
 
-    prompt_session: PromptSession[str] = PromptSession(
-        history=FileHistory(str(history_file))
-    )
+    prompt_session: PromptSession[str] = PromptSession(history=FileHistory(str(history_file)))
 
     console.print("[dim]Interactive mode. Type 'exit' or 'quit' to exit.[/dim]")
     console.print()
@@ -386,8 +601,7 @@ async def interactive_loop(
     while True:
         try:
             user_input = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: prompt_session.prompt("You: ")
+                None, lambda: prompt_session.prompt("You: ")
             )
 
             user_input = user_input.strip()
@@ -445,6 +659,13 @@ def main() -> None:
         if not args.no_logo:
             display_logo(console)
         run_init(console)
+        return
+
+    # Handle slack init command
+    if args.prompt == "slack" and args.subcommand == "init":
+        if not args.no_logo:
+            display_logo(console)
+        run_slack_init(console)
         return
 
     # Try to load config, auto-start onboarding if no config exists
@@ -600,8 +821,7 @@ def main() -> None:
                 show_sessions_list(console, session_mgr)
                 console.print()
                 session_choice = Prompt.ask(
-                    "Enter session # or name (or press Enter for new)",
-                    default=""
+                    "Enter session # or name (or press Enter for new)", default=""
                 )
                 if session_choice:
                     try:
@@ -647,6 +867,7 @@ def main() -> None:
     else:
         # --new-session: create a timestamped session
         from datetime import datetime
+
         session_name = f"session-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         session_mgr.create(name=session_name)
         console.print(f"[green]✓[/green] Created new session: [bold]{session_name}[/bold]")
@@ -659,9 +880,32 @@ def main() -> None:
     if session_mgr.current:
         session_mgr.restore_to_context(agent.context)
 
+    # Start Slack bot in background if configured (unless --no-slack)
+    slack_bot = None
+    if not args.no_slack and config.slack:
+        try:
+            from mashell.integrations.slack import SlackBot
+
+            slack_bot = SlackBot(config.slack, agent, console)
+            slack_bot.start_async()  # Non-blocking, runs in background
+            console.print()
+        except ImportError:
+            console.print("[yellow]⚠️ Slack dependencies not found, skipping Slack bot[/yellow]")
+        except Exception as e:
+            console.print(f"[yellow]⚠️ Failed to start Slack bot: {e}[/yellow]")
+
+    # If --slack flag is set explicitly without config, show error
+    if args.slack and not config.slack:
+        console.print("[red]❌ Slack configuration not found![/red]")
+        console.print()
+        console.print("[bold]Run the setup wizard to configure Slack:[/bold]")
+        console.print("  [cyan]mashell slack init[/cyan]")
+        console.print()
+        return
+
     # Run
-    if args.prompt:
-        # Single prompt mode
+    if args.prompt and args.prompt != "slack":
+        # Single prompt mode (exclude "slack" as it might be leftover from "slack init")
         asyncio.run(agent.run(args.prompt))
         # Save session after single prompt
         session_mgr.update_from_context(agent.context, args.prompt)

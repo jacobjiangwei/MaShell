@@ -63,11 +63,13 @@ class AnthropicProvider(BaseProvider):
             # Tool result format for Anthropic
             return {
                 "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": msg.tool_call_id,
-                    "content": msg.content or "",
-                }]
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": msg.tool_call_id,
+                        "content": msg.content or "",
+                    }
+                ],
             }
 
         if msg.role == "assistant" and msg.tool_calls:
@@ -76,12 +78,14 @@ class AnthropicProvider(BaseProvider):
             if msg.content:
                 content.append({"type": "text", "text": msg.content})
             for tc in msg.tool_calls:
-                content.append({
-                    "type": "tool_use",
-                    "id": tc.id,
-                    "name": tc.name,
-                    "input": tc.arguments,
-                })
+                content.append(
+                    {
+                        "type": "tool_use",
+                        "id": tc.id,
+                        "name": tc.name,
+                        "input": tc.arguments,
+                    }
+                )
             return {"role": "assistant", "content": content}
 
         return {
@@ -95,11 +99,15 @@ class AnthropicProvider(BaseProvider):
         for tool in openai_tools:
             if tool.get("type") == "function":
                 func = tool["function"]
-                anthropic_tools.append({
-                    "name": func["name"],
-                    "description": func.get("description", ""),
-                    "input_schema": func.get("parameters", {"type": "object", "properties": {}}),
-                })
+                anthropic_tools.append(
+                    {
+                        "name": func["name"],
+                        "description": func.get("description", ""),
+                        "input_schema": func.get(
+                            "parameters", {"type": "object", "properties": {}}
+                        ),
+                    }
+                )
         return anthropic_tools
 
     def _parse_response(self, data: dict[str, Any]) -> Response:
@@ -113,11 +121,13 @@ class AnthropicProvider(BaseProvider):
             if block["type"] == "text":
                 text_content += block["text"]
             elif block["type"] == "tool_use":
-                tool_calls.append(ToolCall(
-                    id=block["id"],
-                    name=block["name"],
-                    arguments=block.get("input", {}),
-                ))
+                tool_calls.append(
+                    ToolCall(
+                        id=block["id"],
+                        name=block["name"],
+                        arguments=block.get("input", {}),
+                    )
+                )
 
         stop_reason = data.get("stop_reason", "end_turn")
         finish_reason = "tool_calls" if stop_reason == "tool_use" else "stop"

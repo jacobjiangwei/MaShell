@@ -1,6 +1,7 @@
 """Core agent implementation."""
 
 import signal
+import threading
 from typing import Any
 
 from rich.console import Console
@@ -20,6 +21,7 @@ from mashell.tools.base import ToolRegistry, ToolResult
 
 class InterruptError(Exception):
     """Raised when user interrupts the agent."""
+
     pass
 
 
@@ -88,6 +90,10 @@ class Agent:
 
     def _setup_interrupt_handler(self) -> None:
         """Setup Ctrl+C handler to allow interruption."""
+        # Only setup signal handler in main thread
+        if threading.current_thread() is not threading.main_thread():
+            return
+
         def handler(signum: int, frame: object) -> None:
             self._interrupted = True
             self._stop_thinking()
@@ -97,6 +103,10 @@ class Agent:
 
     def _restore_interrupt_handler(self) -> None:
         """Restore original Ctrl+C handler."""
+        # Only restore if we're in main thread
+        if threading.current_thread() is not threading.main_thread():
+            return
+
         if self._original_sigint_handler is not None:
             signal.signal(signal.SIGINT, self._original_sigint_handler)
             self._original_sigint_handler = None
@@ -171,9 +181,7 @@ class Agent:
 
                 try:
                     choice = Prompt.ask(
-                        "[bold]Continue?[/bold]",
-                        choices=["y", "n", "more"],
-                        default="y"
+                        "[bold]Continue?[/bold]", choices=["y", "n", "more"], default="y"
                     )
 
                     if choice == "n":
@@ -220,9 +228,7 @@ class Agent:
                 if not response.tool_calls:
                     if response.content:
                         self.console.print()
-                        self.console.print(
-                            f"[bold green]MaShell:[/bold green] {response.content}"
-                        )
+                        self.console.print(f"[bold green]MaShell:[/bold green] {response.content}")
                         self.context.add_message(
                             Message(role="assistant", content=response.content)
                         )
@@ -270,15 +276,10 @@ class Agent:
                             self.context.add_message(cancelled_msg)
 
                         self.console.print(
-                            f"[bold blue]📝 New instruction:[/bold blue] "
-                            f"{new_instruction}"
+                            f"[bold blue]📝 New instruction:[/bold blue] {new_instruction}"
                         )
-                        messages.append(Message(
-                            role="user", content=new_instruction
-                        ))
-                        self.context.add_message(Message(
-                            role="user", content=new_instruction
-                        ))
+                        messages.append(Message(role="user", content=new_instruction))
+                        self.context.add_message(Message(role="user", content=new_instruction))
                         break  # Exit tool loop to process new instruction
 
                     result = await self._execute_tool(tool_call)
@@ -299,7 +300,7 @@ class Agent:
                         self.context.add_message(tool_msg)
 
                         # Add cancelled results for remaining tool calls
-                        for remaining_call in tool_calls_list[i+1:]:
+                        for remaining_call in tool_calls_list[i + 1 :]:
                             cancelled_msg = Message(
                                 role="tool",
                                 content="[Cancelled by user]",
@@ -309,15 +310,10 @@ class Agent:
                             self.context.add_message(cancelled_msg)
 
                         self.console.print(
-                            f"[bold blue]📝 New instruction:[/bold blue] "
-                            f"{new_instruction}"
+                            f"[bold blue]📝 New instruction:[/bold blue] {new_instruction}"
                         )
-                        messages.append(Message(
-                            role="user", content=new_instruction
-                        ))
-                        self.context.add_message(Message(
-                            role="user", content=new_instruction
-                        ))
+                        messages.append(Message(role="user", content=new_instruction))
+                        self.context.add_message(Message(role="user", content=new_instruction))
                         break  # Exit tool loop to process new instruction
 
                     # Add tool result
@@ -334,6 +330,7 @@ class Agent:
                 self.console.print(f"[red]Error: {rich_escape(str(e))}[/red]")
                 if self.verbose:
                     import traceback
+
                     self.console.print(f"[dim]{rich_escape(traceback.format_exc())}[/dim]")
                 return None
 
@@ -417,11 +414,11 @@ class Agent:
         if result.success:
             if result.output.strip():
                 # Truncate long output
-                lines = result.output.strip().split('\n')
+                lines = result.output.strip().split("\n")
                 if len(lines) > 15:
                     more = len(lines) - 12
                     display_lines = lines[:12] + [f"  ... ({more} more lines)"]
-                    output_display = '\n'.join(display_lines)
+                    output_display = "\n".join(display_lines)
                 else:
                     output_display = result.output.strip()
 
@@ -430,7 +427,7 @@ class Agent:
             else:
                 self.console.print("[green]✓ Done[/green]")
         else:
-            err_msg = rich_escape(result.error or 'Unknown error')
+            err_msg = rich_escape(result.error or "Unknown error")
             self.console.print(f"[bold red]✗ Failed:[/bold red] {err_msg}")
 
         return result

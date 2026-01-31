@@ -79,9 +79,9 @@ class AzureProvider(BaseProvider):
                         try:
                             delay = float(retry_after)
                         except ValueError:
-                            delay = self.BASE_RETRY_DELAY * (2 ** attempt)
+                            delay = self.BASE_RETRY_DELAY * (2**attempt)
                     else:
-                        delay = self.BASE_RETRY_DELAY * (2 ** attempt)
+                        delay = self.BASE_RETRY_DELAY * (2**attempt)
 
                     delay = min(delay, self.MAX_RETRY_DELAY)
 
@@ -96,7 +96,7 @@ class AzureProvider(BaseProvider):
             except httpx.TimeoutException as e:
                 last_error = e
                 if attempt < self.MAX_RETRIES - 1:
-                    delay = self.BASE_RETRY_DELAY * (2 ** attempt)
+                    delay = self.BASE_RETRY_DELAY * (2**attempt)
                     await asyncio.sleep(delay)
                     continue
                 raise

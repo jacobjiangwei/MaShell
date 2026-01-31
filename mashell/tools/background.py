@@ -10,6 +10,7 @@ from mashell.tools.base import BaseTool, ToolResult
 @dataclass
 class BackgroundTask:
     """A background task."""
+
     id: str
     process: asyncio.subprocess.Process
     command: str
@@ -136,16 +137,13 @@ class RunBackgroundTool(BaseTool):
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "command": {
-                "type": "string",
-                "description": "The shell command to run in background"
-            },
+            "command": {"type": "string", "description": "The shell command to run in background"},
             "working_dir": {
                 "type": "string",
-                "description": "Working directory for the command (optional)"
+                "description": "Working directory for the command (optional)",
             },
         },
-        "required": ["command"]
+        "required": ["command"],
     }
 
     requires_permission = True
@@ -195,20 +193,17 @@ class CheckBackgroundTool(BaseTool):
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "task_id": {
-                "type": "string",
-                "description": "The ID of the background task"
-            },
+            "task_id": {"type": "string", "description": "The ID of the background task"},
             "wait": {
                 "type": "boolean",
-                "description": "Wait for task to complete (default: false)"
+                "description": "Wait for task to complete (default: false)",
             },
             "tail": {
                 "type": "integer",
-                "description": "Number of output lines to return (default: 50)"
-            }
+                "description": "Number of output lines to return (default: 50)",
+            },
         },
-        "required": ["task_id"]
+        "required": ["task_id"],
     }
 
     requires_permission = False  # Reading output doesn't need permission

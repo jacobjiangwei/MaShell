@@ -26,12 +26,14 @@ class PermissionUI:
         details = self._format_request(request)
 
         # Display permission box
-        self.console.print(Panel(
-            details,
-            title="🔐 Permission Request",
-            border_style="yellow",
-            padding=(1, 2),
-        ))
+        self.console.print(
+            Panel(
+                details,
+                title="🔐 Permission Request",
+                border_style="yellow",
+                padding=(1, 2),
+            )
+        )
 
         # Get user input
         self.console.print(
@@ -84,10 +86,7 @@ class PermissionUI:
     async def _get_input(self, prompt: str) -> str:
         """Get input from user."""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None,
-            lambda: input(prompt)
-        )
+        return await loop.run_in_executor(None, lambda: input(prompt))
 
     async def _edit_command(self, args: dict[str, Any]) -> dict[str, Any] | None:
         """Let user edit the command."""

@@ -10,6 +10,7 @@ from mashell.permissions.ui import PermissionUI
 @dataclass
 class PermissionRequest:
     """A request for permission to perform an action."""
+
     tool_name: str
     arguments: dict[str, Any]
     description: str
@@ -18,6 +19,7 @@ class PermissionRequest:
 @dataclass
 class PermissionResult:
     """Result of a permission check."""
+
     approved: bool
     modified_args: dict[str, Any] | None = None  # If user edited
     remember: bool = False  # "Always approve" selected

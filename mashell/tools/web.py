@@ -34,28 +34,25 @@ Returns clean Markdown text optimized for LLM processing.
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "url": {
-                "type": "string",
-                "description": "The URL to crawl"
-            },
+            "url": {"type": "string", "description": "The URL to crawl"},
             "extract_links": {
                 "type": "boolean",
-                "description": "Also extract all links from the page (default: false)"
+                "description": "Also extract all links from the page (default: false)",
             },
             "wait_for": {
                 "type": "string",
-                "description": "CSS selector to wait for before extracting (for dynamic content)"
+                "description": "CSS selector to wait for before extracting (for dynamic content)",
             },
             "css_selector": {
                 "type": "string",
-                "description": "Focus on specific CSS selector (e.g. '.main-content')"
+                "description": "Focus on specific CSS selector (e.g. '.main-content')",
             },
             "screenshot": {
                 "type": "boolean",
-                "description": "Take a screenshot of the page (default: false)"
-            }
+                "description": "Take a screenshot of the page (default: false)",
+            },
         },
-        "required": ["url"]
+        "required": ["url"],
     }
 
     requires_permission = True
@@ -73,6 +70,7 @@ Returns clean Markdown text optimized for LLM processing.
         """Crawl a web page using Crawl4AI."""
         try:
             import importlib.util
+
             if importlib.util.find_spec("crawl4ai") is None:
                 raise ImportError("crawl4ai not found")
         except ImportError:
@@ -138,9 +136,9 @@ Returns clean Markdown text optimized for LLM processing.
         # Add markdown content
         markdown_content = result.markdown
         if markdown_content:
-            if hasattr(markdown_content, 'raw_markdown'):
+            if hasattr(markdown_content, "raw_markdown"):
                 content = markdown_content.raw_markdown
-            elif hasattr(markdown_content, 'fit_markdown'):
+            elif hasattr(markdown_content, "fit_markdown"):
                 content = markdown_content.fit_markdown
             else:
                 content = str(markdown_content)
@@ -222,16 +220,13 @@ class FetchPageTool(BaseTool):
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "url": {
-                "type": "string",
-                "description": "The URL to fetch"
-            },
+            "url": {"type": "string", "description": "The URL to fetch"},
             "timeout": {
                 "type": "integer",
-                "description": "Request timeout in seconds (default: 30)"
-            }
+                "description": "Request timeout in seconds (default: 30)",
+            },
         },
-        "required": ["url"]
+        "required": ["url"],
     }
 
     requires_permission = True
@@ -249,9 +244,7 @@ class FetchPageTool(BaseTool):
 
             ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
             async with httpx.AsyncClient(
-                timeout=timeout,
-                follow_redirects=True,
-                headers={"User-Agent": ua}
+                timeout=timeout, follow_redirects=True, headers={"User-Agent": ua}
             ) as client:
                 response = await client.get(url)
                 response.raise_for_status()
@@ -261,6 +254,7 @@ class FetchPageTool(BaseTool):
                 if "json" in content_type:
                     # Return formatted JSON
                     import json
+
                     try:
                         data = response.json()
                         return ToolResult(
@@ -310,6 +304,7 @@ class FetchPageTool(BaseTool):
         try:
             # Try BeautifulSoup if available
             from bs4 import BeautifulSoup
+
             soup = BeautifulSoup(html, "html.parser")
 
             # Remove script and style elements
@@ -321,21 +316,24 @@ class FetchPageTool(BaseTool):
 
             # Clean up multiple newlines
             import re
-            text = re.sub(r'\n{3,}', '\n\n', text)
+
+            text = re.sub(r"\n{3,}", "\n\n", text)
 
             return text
 
         except ImportError:
             # Fallback: basic regex extraction
             import re
+
             # Remove script/style tags
-            text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
-            text = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
             # Remove all other tags
-            text = re.sub(r'<[^>]+>', ' ', text)
+            text = re.sub(r"<[^>]+>", " ", text)
             # Decode HTML entities
             import html as html_module
+
             text = html_module.unescape(text)
             # Clean whitespace
-            text = re.sub(r'\s+', ' ', text).strip()
+            text = re.sub(r"\s+", " ", text).strip()
             return text
