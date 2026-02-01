@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from mashell.config import SlackConfig
     from mashell.permissions.manager import PermissionRequest, PermissionResult
 
+from mashell.permissions.ui import PermissionUI
+
 # Check if slack-bolt is installed
 try:
     from slack_bolt import App
@@ -107,7 +109,7 @@ class SlackPermissionUI:
             return PermissionResult(approved=False)
 
 
-class SlackPermissionUIAdapter:
+class SlackPermissionUIAdapter(PermissionUI):
     """Adapter to make SlackPermissionUI compatible with PermissionUI interface."""
 
     def __init__(
@@ -116,6 +118,7 @@ class SlackPermissionUIAdapter:
         channel: str,
         thread_ts: str,
     ) -> None:
+        super().__init__()
         self.slack_ui = slack_ui
         self.channel = channel
         self.thread_ts = thread_ts
@@ -195,7 +198,7 @@ class SlackBot:
             channel = event.get("channel", "")
             user = event.get("user", "")
             text = event.get("text", "")
-            thread_ts = event.get("thread_ts") or event.get("ts")
+            thread_ts = event.get("thread_ts") or event.get("ts") or ""
 
             # Check if this is a response to a permission request
             if thread_ts and thread_ts in self._permission_ui._response_events:
@@ -234,7 +237,7 @@ class SlackBot:
             channel = event.get("channel", "")
             user = event.get("user", "")
             text = event.get("text", "")
-            thread_ts = event.get("thread_ts") or event.get("ts")
+            thread_ts = event.get("thread_ts") or event.get("ts") or ""
 
             # Check if this is a response to a permission request
             parent_ts = event.get("thread_ts")
