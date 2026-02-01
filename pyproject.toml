@@ -1,6 +1,6 @@
 [project]
 name = "mashell"
-version = "1.0.7"
+version = "1.0.8"
 description = "AI-powered command line assistant - any model, anywhere"
 readme = "README.md"
 license = {text = "GPL-3.0"}
