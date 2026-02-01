@@ -657,14 +657,14 @@ def main() -> None:
     # Handle explicit init command
     if args.prompt == "init":
         if not args.no_logo:
-            display_logo(console)
+            display_logo(console, animate=False)
         run_init(console)
         return
 
     # Handle slack init command
     if args.prompt == "slack" and args.subcommand == "init":
         if not args.no_logo:
-            display_logo(console)
+            display_logo(console, animate=False)
         run_slack_init(console)
         return
 
@@ -688,7 +688,7 @@ def main() -> None:
         if has_no_cli_args and not config_path.exists():
             # First time user - start onboarding
             if not args.no_logo:
-                display_logo(console)
+                display_logo(console, animate=False)
             console.print("[yellow]No configuration found.[/yellow] Let's set up MaShell!\n")
             run_init(console)
             return
@@ -707,7 +707,7 @@ def main() -> None:
 
     # Display logo
     if not args.no_logo:
-        display_logo(console)
+        display_logo(console, animate=False)
 
     # Handle session resume
     session_name: str | None = None
@@ -790,72 +790,20 @@ def main() -> None:
                     break
 
         if recent_session:
-            # Ask user if they want to resume
-            task_preview = recent_session.original_task or ""
-            if len(task_preview) > 50:
-                task_preview = task_preview[:50] + "..."
-
-            console.print(
-                f"[cyan]📂 Found previous session:[/cyan] [bold]{recent_session.name}[/bold]"
-            )
-            console.print(f"[dim]   Task: {task_preview}[/dim]")
-            console.print()
-
-            choice = Prompt.ask(
-                "Resume this session?",
-                choices=["y", "n", "l"],
-                default="y",
-                show_choices=True,
-            )
-            console.print()
-
-            if choice == "y":
-                session = session_mgr.load(recent_session.name)
-                if session:
-                    session_name = session.name
-                    resume_prompt = session_mgr.get_resume_prompt()
-                    console.print(f"[green]✓[/green] Resuming session: [bold]{session.name}[/bold]")
-                    console.print()
-            elif choice == "l":
-                # List all sessions
-                show_sessions_list(console, session_mgr)
-                console.print()
-                session_choice = Prompt.ask(
-                    "Enter session # or name (or press Enter for new)", default=""
-                )
-                if session_choice:
-                    try:
-                        idx = int(session_choice) - 1
-                        if 0 <= idx < len(sessions):
-                            session = session_mgr.load(sessions[idx].name)
-                            if session:
-                                session_name = session.name
-                                resume_prompt = session_mgr.get_resume_prompt()
-                                console.print(
-                                    f"[green]✓[/green] Resuming: [bold]{session.name}[/bold]"
-                                )
-                                console.print()
-                    except ValueError:
-                        # Treat as session name
-                        session = session_mgr.load(session_choice)
-                        if session:
-                            session_name = session.name
-                            resume_prompt = session_mgr.get_resume_prompt()
-                            console.print(f"[green]✓[/green] Resuming: [bold]{session.name}[/bold]")
-                            console.print()
-
-                if not session_name:
-                    # New session
-                    session_name = "default"
-                    session_mgr.create(name=session_name)
-                    console.print("[green]✓[/green] Starting new session")
-                    console.print()
-            else:
-                # Start fresh with default session
-                session_name = "default"
-                # Clear default session or create new
-                session_mgr.create(name=session_name)
-                console.print("[green]✓[/green] Starting new session")
+            # Auto-resume the most recent session
+            session = session_mgr.load(recent_session.name)
+            if session:
+                session_name = session.name
+                resume_prompt = session_mgr.get_resume_prompt()
+                
+                task_preview = session.original_task or ""
+                if len(task_preview) > 60:
+                    task_preview = task_preview[:60] + "..."
+                
+                console.print(f"[green]✓[/green] Resuming session: [bold]{session.name}[/bold]")
+                if task_preview:
+                    console.print(f"[dim]   Task: {task_preview}[/dim]")
+                console.print(f"[dim]   (Use --new or -n to start a new session)[/dim]")
                 console.print()
         else:
             # No previous sessions - just create default
