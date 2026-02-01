@@ -11,6 +11,7 @@ jobs:
     environment: pypi
     permissions:
       id-token: write  # Required for trusted publishing
+      contents: write  # Required for creating releases
 
     steps:
       - uses: actions/checkout@v4
@@ -30,3 +31,12 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         # Uses trusted publishing - no API token needed
         # Configure at: https://pypi.org/manage/project/mashell/settings/publishing/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
