@@ -795,15 +795,15 @@ def main() -> None:
             if session:
                 session_name = session.name
                 resume_prompt = session_mgr.get_resume_prompt()
-                
+
                 task_preview = session.original_task or ""
                 if len(task_preview) > 60:
                     task_preview = task_preview[:60] + "..."
-                
+
                 console.print(f"[green]✓[/green] Resuming session: [bold]{session.name}[/bold]")
                 if task_preview:
                     console.print(f"[dim]   Task: {task_preview}[/dim]")
-                console.print(f"[dim]   (Use --new or -n to start a new session)[/dim]")
+                console.print("[dim]   (Use --new or -n to start a new session)[/dim]")
                 console.print()
         else:
             # No previous sessions - just create default
