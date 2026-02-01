@@ -18,7 +18,11 @@ MaShell is an AI agent that lives in your terminal. It can run commands, write c
 ## ⚡ Quick Start
 
 ```bash
-# Install (macOS/Linux)
+# Install with Homebrew (macOS)
+brew tap jacobjiangwei/tap
+brew install mashell
+
+# Or install with pipx (macOS/Linux)
 pipx install mashell
 
 # Or with pip (in a virtual environment)
@@ -28,7 +32,7 @@ pip install mashell
 mashell
 ```
 
-> **Note**: On macOS, we recommend `pipx` for installing CLI tools. Install it with `brew install pipx` if you don't have it.
+> **Note**: On macOS, we recommend Homebrew or `pipx` for installing CLI tools. Install pipx with `brew install pipx` if you don't have it.
 
 That's it! MaShell will walk you through connecting to your AI provider (OpenAI, Azure, Anthropic, or local Ollama).
 
